@@ -1,0 +1,8 @@
+.idea/
+fb/
+datasets/*
+*.jpg
+*.tsv
+*.pyc
+addestramenti/
+features/
