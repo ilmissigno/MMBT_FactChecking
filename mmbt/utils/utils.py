@@ -23,7 +23,7 @@ def set_seed(seed):
     torch.cuda.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
     torch.backends.cudnn.deterministic = True
-    torch.backends.cudnn.benchmark = False
+    torch.backends.cudnn.benchmark = True
 
 
 def save_checkpoint(state, is_best, checkpoint_path, filename="checkpoint.pt"):
@@ -83,8 +83,8 @@ def log_metrics(set_name, metrics, args, logger):
         )
     else:
         logger.info(
-            "{}: Loss: {:.5f} | Acc: {:.5f} | Macro F1 {:.5f} | Micro F1: {:.5f}".format(
-                set_name, metrics["loss"], metrics["acc"], metrics["macro_f1"], metrics["micro_f1"]
+            "{}: Loss: {:.5f} | NDCG@5: {:.5f} | NDCG@1: {:.5f} | Hit@5: {:.5f} | Precision@5: {:.5f} | Precision@1: {:.5f}".format(
+                set_name, metrics["loss"], metrics["ndcg"], metrics["ndcg_1"], metrics["acc"], metrics["prec5"], metrics["prec1"]
             )
         )
 

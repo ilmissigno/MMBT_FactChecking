@@ -15,18 +15,27 @@ from datetime import timedelta
 class LogFormatter:
     def __init__(self):
         self.start_time = time.time()
+        grey = "\x1b[38;21m"
+        yellow = "\x1b[35;21m"
+        red = "\x1b[31;21m"
+        bold_red = "\x1b[31;1m"
+        cyan = "\x1b[32;3m"
+        green = "\x1b[34;40m"
+        reset = "\x1b[0m"
+        format = "%(asctime)s - %(levelname)s - %(message)s at (%(filename)s:%(lineno)d)"
+
+        self.FORMATS = {
+            logging.DEBUG: green + format + reset,
+            logging.INFO: cyan + format + reset,
+            logging.WARNING: yellow + format + reset,
+            logging.ERROR: red + format + reset,
+            logging.CRITICAL: bold_red + format + reset
+        }
 
     def format(self, record):
-        elapsed_seconds = round(record.created - self.start_time)
-
-        prefix = "%s - %s - %s" % (
-            record.levelname,
-            time.strftime("%x %X"),
-            timedelta(seconds=elapsed_seconds),
-        )
-        message = record.getMessage()
-        message = message.replace("\n", "\n" + " " * (len(prefix) + 3))
-        return "%s - %s" % (prefix, message)
+        log_fmt = self.FORMATS.get(record.levelno)
+        formatter = logging.Formatter(log_fmt, "%Y-%m-%d %H:%M")
+        return formatter.format(record)
 
 
 def create_logger(filepath, args):

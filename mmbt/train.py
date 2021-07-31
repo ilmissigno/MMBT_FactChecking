@@ -9,7 +9,7 @@
 
 
 import argparse
-from sklearn.metrics import f1_score, accuracy_score,average_precision_score
+from sklearn.metrics import f1_score, accuracy_score,ndcg_score,average_precision_score,top_k_accuracy_score
 from sklearn.metrics.pairwise import cosine_similarity
 from tqdm import tqdm
 import configargparse
@@ -20,13 +20,16 @@ import torch.nn as nn
 import torch.optim as optim
 import sys
 import gc
-sys.path.append('/content/drive/MyDrive/mmbt')
-from data.helpers import get_data_loaders,get_data_loaders_left_right
-from models import get_model
-from utils.logger import create_logger
-from utils.utils import *
-from losses.CrossSimilarity import CrossSimilarity
-cudnn.benchmark = True
+from random import randint
+from pytorch_pretrained_bert import BertAdam
+sys.path.append("")
+from matchzoo.metrics import normalized_discounted_cumulative_gain as ndcg
+from mmbt.data.helpers import get_data_loaders,get_data_loaders_left_right
+from mmbt.models import get_model
+from mmbt.utils.logger import create_logger
+from mmbt.utils.utils import *
+from mmbt.losses.CrossSimilarity import CrossSimilarity
+from mmbt.metrics.RankMetrics import *
 
 
 def get_args(parser):
@@ -82,6 +85,12 @@ def get_criterion(args):
 
 def get_optimizer(model, args):
     if args.model in ["bert", "concatbert", "mmbt"]:
+        total_steps = (
+            args.train_data_len
+            / args.batch_sz
+            / args.gradient_accumulation_steps
+            * args.max_epochs
+        )
         param_optimizer = list(model.named_parameters())
         no_decay = ["bias", "LayerNorm.bias", "LayerNorm.weight"]
         optimizer_grouped_parameters = [
@@ -93,7 +102,7 @@ def get_optimizer(model, args):
             lr=args.lr,
             warmup=args.warmup,
         )
-        # optimizer = optim.AdamW(model.parameters(), lr=args.lr)
+        # optimizer = optim.Adadelta(model.parameters(),lr=args.lr)
     else:
         optimizer = optim.AdamW(model.parameters(), lr=args.lr)
 
@@ -105,9 +114,11 @@ def get_scheduler(optimizer, args):
         optimizer, "max", patience=args.lr_patience, verbose=True, factor=args.lr_factor
     )
 
+
 def model_eval(i_epoch, data, model, args,loss_obj, store_preds=False):
     with torch.no_grad():
-        losses, ndcg_at_1, ndcg_at_5, hit_at_5, map_list = [], [], [], [], []
+        losses, preds,tgts = [], [], []
+        ndcg_list,ndcg_list_at_1, hit_list, map_list, map_list_at_1 = [], [], [], [], []
         for batch in tqdm(data, total=len(data)):
             loss,out,tgt = model_forward(i_epoch,model,args,loss_obj,batch)
             losses.append(loss.item())
@@ -115,13 +126,24 @@ def model_eval(i_epoch, data, model, args,loss_obj, store_preds=False):
                 pred = torch.sigmoid(out).cpu().detach().numpy() > 0.5
             else:
                 pred = torch.nn.functional.softmax(out, dim=1).argmax(dim=1).cpu().detach().numpy()
-            
-            preds.append(pred)
-            # preds_right.append(pred_right)
-            # tgt_l = tgt_l.cpu().detach().numpy()
-            tgt = tgt.cpu().detach().numpy()
-            # tgts_left.append(tgt_l)
-            tgts.append(tgt)
+                # pred_right = torch.nn.functional.softmax(out_r, dim=1).argmax(dim=1).cpu().detach().numpy()
+            ndcg_list.append(ndcg_at_k(pred,5))
+            ndcg_list_at_1.append(ndcg_at_k(pred,1))
+            map_list.append(average_precision(pred))
+            map_list_at_1.append(average_precision(pred))
+            hit_list.append(getHitRatioForList(pred,tgt.cpu().detach().numpy()))
+            """
+            Calcolare Predizioni ndcg per ogni batch e appendere in una lista
+            Poi fare alla fine np.nanmean della lista
+            Uguale per precision at k e accuracy at k
+            Per la loss provare loss.sum()
+            """
+            # preds.append(pred)
+            # # # preds_right.append(pred_right)
+            # # # tgt_l = tgt_l.cpu().detach().numpy()
+            # tgt = tgt.cpu().detach().numpy()
+            # # # tgts_left.append(tgt_l)
+            # tgts.append(tgt)
 
         metrics = {"loss": np.mean(losses)}
         if args.task_type == "multilabel":
@@ -134,9 +156,11 @@ def model_eval(i_epoch, data, model, args,loss_obj, store_preds=False):
             tgts = [l for sl in tgts for l in sl]
             preds = [l for sl in preds for l in sl]
             # preds_right = [l for sl in preds_right for l in sl]
-            metrics["acc"] = accuracy_score(tgts,preds)
-            metrics["macro_f1"] = f1_score(tgts, preds, average="macro")
-            metrics["micro_f1"] = f1_score(tgts, preds, average="micro")
+            metrics["ndcg"] = np.nanmean(ndcg_list)
+            metrics["ndcg_1"] = np.nanmean(ndcg_list_at_1)
+            metrics["acc"] = 1 - np.nanmean(hit_list)
+            metrics["prec5"] = np.nanmean(map_list)
+            metrics["prec1"] = np.nanmean(map_list_at_1)
 
         if store_preds:
             # store_preds_to_disk(tgts_left, preds_left, args)
@@ -264,14 +288,16 @@ def model_forward_feat(lab_loader,i_batch,i_epoch, model, args, criterion, batch
 
 def train(args):
     loss_obj = CrossSimilarity()
-    set_seed(args.seed)
+    logger = create_logger("%s/logfile.log" % args.savedir, args)
+    seed_val = randint(0, 10000)
+    logger.warning("*"*50+" SEED : "+str(seed_val)+" "+"*"*50)
+    set_seed(seed_val)
     args.savedir = os.path.join(args.savedir, args.name)
     os.makedirs(args.savedir, exist_ok=True)
     train_loader, val_loader, test_loaders = get_data_loaders_left_right(args)
     model = get_model(args)
     optimizer1 = get_optimizer(model, args)
     scheduler1 = get_scheduler(optimizer1, args)
-    logger = create_logger("%s/logfile.log" % args.savedir, args)
     logger.info(model)
     model.cuda()
     torch.save(args, os.path.join(args.savedir, "args.pt"))
@@ -304,6 +330,90 @@ def cli_main():
     train(args)
 
 
+def train_phase_single(args, settings_dict):
+    model = settings_dict['model']
+    logger = settings_dict['logger']
+    train_loader = settings_dict['train_loader']
+    val_loader = settings_dict['val_loader']
+    test_loaders = settings_dict['test_loaders']
+    criterion = settings_dict['criterion']
+    optimizer = settings_dict['optimizer']
+    scheduler = settings_dict['scheduler']
+    start_epoch = settings_dict['start_epoch']
+    global_step = settings_dict['global_step']
+    best_metric = settings_dict['best_metric']
+    n_no_improve = settings_dict['n_no_improve']
+    if args.task_type == 'extraction':
+        logger.info("Feature Extraction Training...")
+        for i_batch, batch in enumerate(tqdm(train_loader, total=len(train_loader))):
+            model_forward_feat("train",i_batch,0, model, args, criterion, batch)
+        logger.info("Feature Extraction Validation...")
+        for i_batch, batch in enumerate(tqdm(val_loader, total=len(val_loader))):
+            model_forward_feat("val",i_batch,0, model, args, criterion, batch)
+        logger.info("Feature Extraction Test...")
+        for test_name, test_loader in test_loaders.items():
+            for i_batch, batch in enumerate(tqdm(test_loader, total=len(test_loader))):
+                model_forward_feat("test",i_batch,0, model, args, criterion, batch)
+    else:
+        logger.info("Training..")
+        for i_epoch in range(start_epoch, args.max_epochs):
+            train_losses = []
+            model.train()
+            optimizer.zero_grad()
+            
+            for i_batch, batch in enumerate(tqdm(train_loader, total=len(train_loader))):
+                loss, _, _ = model_forward(i_epoch, model, args, criterion, batch)
+                if args.gradient_accumulation_steps > 1:
+                    loss = loss / args.gradient_accumulation_steps
+
+                train_losses.append(loss.item())
+                loss.backward()
+                global_step += 1
+                if global_step % args.gradient_accumulation_steps == 0:
+                    optimizer.step()
+                    optimizer.zero_grad()
+
+            model.eval()
+            logger.info("Validation...")
+            metrics = model_eval(i_epoch, val_loader, model, args, criterion)
+            logger.info("Train Loss: {:.4f}".format(np.mean(train_losses)))
+            log_metrics("Val", metrics, args, logger)
+
+            tuning_metric = (
+                metrics["micro_f1"] if args.task_type == "multilabel" else metrics["acc"]
+            )
+            scheduler.step(tuning_metric)
+            is_improvement = tuning_metric > best_metric
+            if is_improvement:
+                best_metric = tuning_metric
+                n_no_improve = 0
+            else:
+                n_no_improve += 1
+
+            save_checkpoint(
+                {
+                    "epoch": i_epoch + 1,
+                    "state_dict": model.state_dict(),
+                    "optimizer": optimizer.state_dict(),
+                    "scheduler": scheduler.state_dict(),
+                    "n_no_improve": n_no_improve,
+                    "best_metric": best_metric,
+                },
+                is_improvement,
+                args.savedir,
+            )
+
+            if n_no_improve >= args.patience:
+                logger.info("No improvement. Breaking out of loop.")
+                break
+
+        model.eval()
+        logger.info("Test...")
+        for test_name, test_loader in test_loaders.items():
+            load_checkpoint(model, os.path.join(args.savedir, "model_best.pt"))
+            test_metrics = model_eval(np.inf, test_loader, model, args, criterion, store_preds=True)
+            log_metrics(f"Test - {test_name}", test_metrics, args, logger)
+
 def train_phase_multi(args, settings_dict):
     model = settings_dict['model']
     optimizer1 = settings_dict['optimizer']
@@ -318,11 +428,19 @@ def train_phase_multi(args, settings_dict):
     best_metric = settings_dict['best_metric']
     n_no_improve = settings_dict['n_no_improve']
     logger.info("Training..")
+    total_steps = (
+            len(train_loader)
+            / args.batch_sz
+            / args.gradient_accumulation_steps
+            * args.max_epochs
+        )
     for i_epoch in range(start_epoch,args.max_epochs):
+        logger.warning("*"*50+" EPOCH "+str(i_epoch)+" "+"*"*50)
         train_losses = []
         model.train()
         optimizer1.zero_grad()
         model.zero_grad()
+        counterz = 0
         for batch in tqdm(train_loader, total=len(train_loader)):
             with torch.cuda.amp.autocast():
                 loss,_,_ = model_forward(i_epoch,model,args,loss_obj,batch)
@@ -330,19 +448,20 @@ def train_phase_multi(args, settings_dict):
                 loss = loss / args.gradient_accumulation_steps
             train_losses.append(loss.item())
             loss.backward()
-            global_step += 1
-            if global_step % args.gradient_accumulation_steps == 0:
-                optimizer1.step()
-                optimizer1.zero_grad()
+            optimizer1.step()
+            optimizer1.zero_grad()
             torch.cuda.empty_cache()
             gc.collect()
+            # counterz+=1
+            # if counterz == 16649:
+            #     break
         model.eval()
         logger.info("Validation...")
         metrics = model_eval(i_epoch, val_loader, model,args,loss_obj)
         log_metrics("Val", metrics, args, logger)
-        logger.info("Train Loss: {:.4f}".format(np.mean(train_losses)))
+        # logger.info("Train Loss: {:.4f}".format(np.mean(train_losses)))
         tuning_metric = (
-            metrics["micro_f1"] if args.task_type == "multilabel" else metrics["micro_f1"]
+            metrics["micro_f1"] if args.task_type == "multilabel" else metrics["ndcg"]
         )
         scheduler1.step(tuning_metric)
         is_improvement = tuning_metric > best_metric
@@ -373,7 +492,7 @@ def train_phase_multi(args, settings_dict):
     logger.info("Test...")
     load_checkpoint(model, os.path.join(args.savedir, "model_best.pt"))
     test_metrics = model_eval(np.inf, test_loaders,model,args,loss_obj, store_preds=True)
-    log_metrics("Test - ", test_metrics, args, logger)
+    log_metrics(f"Test - ", test_metrics, args, logger)
 
 
 
@@ -381,5 +500,9 @@ if __name__ == "__main__":
     import warnings
 
     warnings.filterwarnings("ignore")
+    
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = True
+    torch.backends.cudnn.enabled = True
 
     cli_main()

@@ -16,8 +16,8 @@ class ImageEncoder(nn.Module):
     def __init__(self, args):
         super(ImageEncoder, self).__init__()
         self.args = args
-        if self.args.image_model.startswith('resnext101'):
-            model = torchvision.models.resnext101_32x8d(pretrained=True)
+        if self.args.image_model.startswith('resnet50'):
+            model = torchvision.models.resnet50(pretrained=True)
         else:
             model = torchvision.models.resnet152(pretrained=True)
         modules = list(model.children())[:-2]

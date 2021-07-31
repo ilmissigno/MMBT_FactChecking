@@ -15,7 +15,7 @@ from collections import Counter
 
 import torch
 import torchvision.transforms as transforms
-from transformers import BertTokenizer
+from transformers import AutoTokenizer
 from torch.utils.data import DataLoader
 
 from mmbt.data.dataset import JsonlDataset, TsvDataset, TsvDatasetMulti
@@ -61,7 +61,7 @@ def get_glove_words(path):
 def get_vocab(args):
     vocab = Vocab()
     if args.model in ["bert", "mmbt", "concatbert"]:
-        bert_tokenizer = BertTokenizer.from_pretrained(
+        bert_tokenizer = AutoTokenizer.from_pretrained(
             args.bert_model, do_lower_case=True
         )
         vocab.stoi = bert_tokenizer.vocab
@@ -263,7 +263,7 @@ def get_data_loaders(args):
 
 def get_data_loaders_left_right(args):
     tokenizer = (
-        BertTokenizer.from_pretrained(args.bert_model, do_lower_case=True).tokenize
+        AutoTokenizer.from_pretrained(args.bert_model, do_lower_case=True).tokenize
         if args.model in ["bert", "mmbt", "concatbert"]
         else str.split
     )
