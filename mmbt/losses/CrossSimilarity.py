@@ -16,7 +16,7 @@ class CrossSimilarity(torch.nn.Module):
         out_r = out_r / torch.norm(out_r,p=2,dim=1,keepdim=True)
         return torch.matmul(out_l,out_r.t())
     
-    def hinge_loss(self,gt,pt):
+    def hinge_loss(self,neg_p,pos_p,target):
         # """
         # Hinge pairwise loss function.
 
@@ -35,26 +35,21 @@ class CrossSimilarity(torch.nn.Module):
         #     The mean value of the loss function.
         # """
         # # checked, usually we need to use a threshold as soft-margin (but this function does not have it)
-        """
-        y_pos = pt[::(self.num_neg + 1), :]
-        y_neg = []
-        for neg_idx in range(self.num_neg):
-            neg = pt[(neg_idx + 1)::(self.num_neg + 1), :]
-            y_neg.append(neg)
-        y_neg = torch.cat(y_neg, dim=-1)
-        y_neg = torch.mean(y_neg, dim=-1, keepdim=True)
-        loss = torch.clamp(y_neg - y_pos + 1.0, 0.0)
-        return loss.mean()
-        """
-        loss = torch.clamp(pt - gt + 1.0, 0.0)
-        return loss.mean()
+        return F.margin_ranking_loss(
+            pos_p, neg_p, target,
+            margin=self.margin,
+            reduction=self.reduction
+        )
+        # loss = torch.clamp(pt - gt + 1.0, 0.0)
+        # return loss.mean()
         # # loss = torch.mean(torch.max(1. - gt * pt))
         # # return loss
         # return self.hinge(pt,gt)
         
     
-    def forward(self, output_l,output_r, target):
+    def forward(self, output_l,output_r, target, output_neg_r):
         res_1 = self.similarities(output_l,output_r)
         res = torch.flatten(res_1, start_dim=1)
-        return res,self.hinge_loss(target,res)
+        neg_res = torch.flatten(output_neg_r, start_dim=1)
+        return res,self.hinge_loss(neg_res,res,target)
     

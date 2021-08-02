@@ -78,14 +78,18 @@ def get_vocab(args):
 def collate_fn(batch, args):
     lens_q = [len(row[0]) for row in batch]
     lens_d = [len(row[3]) for row in batch]
-    bsz, max_seq_len_q, max_seq_len_d = len(batch), max(lens_q), max(lens_d)
+    lens_neg_d = [len(row[6]) for row in batch]
+    bsz, max_seq_len_q, max_seq_len_d, max_seq_neg_len_d = len(batch), max(lens_q), max(lens_d), max(lens_neg_d)
 
     mask_tensor_q = torch.zeros(bsz, max_seq_len_q).long()
     mask_tensor_d = torch.zeros(bsz, max_seq_len_d).long()
+    mask_tensor_neg_d = torch.zeros(bsz, max_seq_neg_len_d).long()
     text_tensor_q = torch.zeros(bsz, max_seq_len_q).long()
     text_tensor_d = torch.zeros(bsz, max_seq_len_d).long()
+    text_tensor_neg_d = torch.zeros(bsz, max_seq_neg_len_d).long()
     segment_tensor_q = torch.zeros(bsz, max_seq_len_q).long()
     segment_tensor_d = torch.zeros(bsz, max_seq_len_d).long()
+    segment_tensor_neg_d = torch.zeros(bsz, max_seq_neg_len_d).long()
 
     img_tensor_q = None
     if args.model in ["img", "concatbow", "concatbert", "mmbt"]:
@@ -94,26 +98,35 @@ def collate_fn(batch, args):
     img_tensor_d = None
     if args.model in ["img", "concatbow", "concatbert", "mmbt"]:
         img_tensor_d = torch.stack([row[5] for row in batch])
+    img_tensor_neg_d = None
+    if args.model in ["img", "concatbow", "concatbert", "mmbt"]:
+        img_tensor_neg_d = torch.stack([row[8] for row in batch])
 
     if args.task_type == "multilabel":
         # Multilabel case
-        tgt_tensor = torch.stack([row[6] for row in batch])
+        tgt_tensor = torch.stack([row[9] for row in batch])
     else:
         # Single Label case
-        tgt_tensor = torch.cat([row[6] for row in batch]).long()
-
-    for i_batch, (input_row, length_q, length_d) in enumerate(zip(batch, lens_q, lens_d)):
+        tgt_tensor = torch.cat([row[9] for row in batch]).long()
+    
+    # sentence_q, segment_q, image_q, sentence_d, segment_d, image_d, neg_sentence_d, neg_segment_d, neg_img_d, label
+    for i_batch, (input_row, length_q, length_d, length_neg_d) in enumerate(zip(batch, lens_q, lens_d, lens_neg_d)):
         tokens_q = input_row[0]
         segment_q = input_row[1]
         tokens_d = input_row[3]
         segment_d = input_row[4]
+        neg_tokens_d = input_row[6]
+        neg_segment_d = input_row[7]
         text_tensor_q[i_batch, :length_q] = tokens_q
         text_tensor_d[i_batch, :length_d] = tokens_d
+        text_tensor_neg_d[i_batch, :length_neg_d] = neg_tokens_d
         segment_tensor_q[i_batch, :length_q] = segment_q
         segment_tensor_d[i_batch, :length_d] = segment_d
+        segment_tensor_neg_d[i_batch, :length_neg_d] = neg_segment_d
         mask_tensor_q[i_batch, :length_q] = 1
         mask_tensor_d[i_batch, :length_d] = 1
-    return text_tensor_q, segment_tensor_q, mask_tensor_q, img_tensor_q, text_tensor_d, segment_tensor_d, mask_tensor_d, img_tensor_d, tgt_tensor
+        mask_tensor_neg_d[i_batch, :length_neg_d] = 1
+    return text_tensor_q, segment_tensor_q, mask_tensor_q, img_tensor_q, text_tensor_d, segment_tensor_d, mask_tensor_d, img_tensor_d, text_tensor_neg_d, segment_tensor_neg_d, mask_tensor_neg_d, img_tensor_neg_d, tgt_tensor
 
 
 def get_data_loaders(args):

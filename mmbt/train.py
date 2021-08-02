@@ -146,7 +146,7 @@ def model_eval(i_epoch, data, model, args,loss_obj, store_preds=False):
             # # # tgts_left.append(tgt_l)
             # tgts.append(tgt)
 
-        metrics = {"loss": np.mean(losses)}
+        metrics = {"loss": np.nanmean(losses)}
         if args.task_type == "multilabel":
             tgts = np.vstack(tgts)
             preds = np.vstack(preds)
@@ -171,7 +171,7 @@ def model_eval(i_epoch, data, model, args,loss_obj, store_preds=False):
 
 
 def model_forward(i_epoch, model, args,loss_obj, batch):
-    txt_left, segment_left, mask_left, img_left,txt_right, segment_right, mask_right, img_right, tgt = batch
+    txt_left, segment_left, mask_left, img_left,txt_right, segment_right, mask_right, img_right,neg_txt_right, neg_segment_right, neg_mask_right, neg_img_right, tgt = batch
     freeze_img = i_epoch < args.freeze_img
     freeze_txt = i_epoch < args.freeze_txt
 
@@ -202,11 +202,11 @@ def model_forward(i_epoch, model, args,loss_obj, batch):
         txt_right, img_right = txt_right.cuda(), img_right.cuda()
         mask_left, segment_left = mask_left.cuda(), segment_left.cuda()
         mask_right, segment_right = mask_right.cuda(), segment_right.cuda()
-        out_l, out_r = model(txt_left,txt_right,mask_left,mask_right,segment_left,segment_right,img_left,img_right)
+        out_l, out_r, out_neg_r = model(txt_left,txt_right,mask_left,mask_right,segment_left,segment_right,img_left,img_right, neg_txt_right,neg_mask_right,neg_segment_right,neg_img_right)
     
     # tgt_left = tgt_left.cuda()
     tgt = tgt.cuda()
-    res,loss = loss_obj(out_l,out_r, tgt)
+    res,loss = loss_obj(out_l,out_r, tgt, out_neg_r)
     return loss,res,tgt
 
 def model_forward_cpu(i_epoch, model, args, batch):
