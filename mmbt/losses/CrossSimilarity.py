@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from matchzoo.losses.rank_hinge_loss import RankHingeLoss
 from matchzoo.losses.rank_cross_entropy_loss import RankCrossEntropyLoss
 
@@ -37,8 +38,8 @@ class CrossSimilarity(torch.nn.Module):
         # # checked, usually we need to use a threshold as soft-margin (but this function does not have it)
         return F.margin_ranking_loss(
             pos_p, neg_p, target,
-            margin=self.margin,
-            reduction=self.reduction
+            margin=1.,
+            reduction='mean',
         )
         # loss = torch.clamp(pt - gt + 1.0, 0.0)
         # return loss.mean()
