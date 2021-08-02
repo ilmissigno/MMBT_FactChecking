@@ -127,7 +127,7 @@ def model_eval(i_epoch, data, model, args,loss_obj, store_preds=False):
             else:
                 pred = torch.nn.functional.softmax(out, dim=1).argmax(dim=1).cpu().detach().numpy()
                 # pred_right = torch.nn.functional.softmax(out_r, dim=1).argmax(dim=1).cpu().detach().numpy()
-            _,rec = _compute_precision_recall(pred,5)
+            _,rec = compute_precision_recall(pred,5)
             ndcg_list.append(ndcg_at_k(pred,5))
             ndcg_list_at_1.append(ndcg_at_k(pred,1))
             map_list.append(average_precision(pred))
@@ -202,6 +202,7 @@ def model_forward(i_epoch, model, args,loss_obj, batch):
         txt_right, img_right = txt_right.cuda(), img_right.cuda()
         mask_left, segment_left = mask_left.cuda(), segment_left.cuda()
         mask_right, segment_right = mask_right.cuda(), segment_right.cuda()
+        neg_txt_right,neg_mask_right,neg_segment_right,neg_img_right = neg_txt_right.cuda(), neg_mask_right.cuda(), neg_segment_right.cuda(),neg_img_right.cuda()
         out_l, out_r, out_neg_r = model(txt_left,txt_right,mask_left,mask_right,segment_left,segment_right,img_left,img_right, neg_txt_right,neg_mask_right,neg_segment_right,neg_img_right)
     
     # tgt_left = tgt_left.cuda()
@@ -453,9 +454,9 @@ def train_phase_multi(args, settings_dict):
             optimizer1.zero_grad()
             torch.cuda.empty_cache()
             gc.collect()
-            # counterz+=1
-            # if counterz == 16649:
-            #     break
+            counterz+=1
+            if counterz == 100:
+                break
         model.eval()
         logger.info("Validation...")
         metrics = model_eval(i_epoch, val_loader, model,args,loss_obj)

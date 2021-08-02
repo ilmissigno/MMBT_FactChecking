@@ -50,7 +50,8 @@ class CrossSimilarity(torch.nn.Module):
     
     def forward(self, output_l,output_r, target, output_neg_r):
         res_1 = self.similarities(output_l,output_r)
+        res_2 = self.similarities(output_l,output_neg_r)
         res = torch.flatten(res_1, start_dim=1)
-        neg_res = torch.flatten(output_neg_r, start_dim=1)
+        neg_res = torch.flatten(res_2, start_dim=1)
         return res,self.hinge_loss(neg_res,res,target)
     

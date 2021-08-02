@@ -102,7 +102,7 @@ def ndcg_at_k(r, k, method=1):
     return dcg_at_k(r, k, method) / dcg_max
 
 
-def _compute_precision_recall(rankedList, k):
+def compute_precision_recall(rankedList, k):
     num_hit = np.sum(rankedList[:k])
     precision = float(num_hit) / float(k)
     recall = float(num_hit) / (np.sum(rankedList) + 1e-10)

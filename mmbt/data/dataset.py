@@ -219,7 +219,7 @@ class TsvDatasetMulti(Dataset):
         )
         
         #negative random document
-        j_idx = randint(0,len(self.data))
+        j_idx = randint(0,len(self.data)-1)
         neg_sentence_d = (
         self.text_start_token
         + self.tokenizer(self.data.loc[j_idx,"DocText"])[
