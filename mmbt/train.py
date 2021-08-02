@@ -127,11 +127,12 @@ def model_eval(i_epoch, data, model, args,loss_obj, store_preds=False):
             else:
                 pred = torch.nn.functional.softmax(out, dim=1).argmax(dim=1).cpu().detach().numpy()
                 # pred_right = torch.nn.functional.softmax(out_r, dim=1).argmax(dim=1).cpu().detach().numpy()
+            _,rec = _compute_precision_recall(pred,5)
             ndcg_list.append(ndcg_at_k(pred,5))
             ndcg_list_at_1.append(ndcg_at_k(pred,1))
             map_list.append(average_precision(pred))
             map_list_at_1.append(average_precision(pred))
-            hit_list.append(getHitRatioForList(pred,tgt.cpu().detach().numpy()))
+            hit_list.append(rec)
             """
             Calcolare Predizioni ndcg per ogni batch e appendere in una lista
             Poi fare alla fine np.nanmean della lista
