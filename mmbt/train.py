@@ -30,6 +30,7 @@ from mmbt.utils.logger import create_logger
 from mmbt.utils.utils import *
 from mmbt.losses.CrossSimilarity import CrossSimilarity
 from mmbt.metrics.RankMetrics import *
+from mmbt.metrics.RankMetrics import ndcg as normalized_dcg
 
 
 def get_args(parser):
@@ -126,13 +127,14 @@ def model_eval(i_epoch, data, model, args,loss_obj, store_preds=False):
                 pred = torch.sigmoid(out).cpu().detach().numpy() > 0.5
             else:
                 pred = torch.nn.functional.softmax(out, dim=1).argmax(dim=1).cpu().detach().numpy()
+                pred_no_npy = torch.nn.functional.softmax(out, dim=1).argmax(dim=1).cpu().detach()
                 # pred_right = torch.nn.functional.softmax(out_r, dim=1).argmax(dim=1).cpu().detach().numpy()
-            _,rec = compute_precision_recall(pred,5)
-            ndcg_list.append(ndcg_at_k(pred,5))
-            ndcg_list_at_1.append(ndcg_at_k(pred,1))
+            tgt = tgt.cpu().detach()
+            ndcg_list.append(normalized_dcg(pred_no_npy,tgt,ats=[5]).numpy())
+            ndcg_list_at_1.append(normalized_dcg(pred_no_npy,tgt,ats=[3]).numpy())
             map_list.append(average_precision(pred))
             map_list_at_1.append(average_precision(pred))
-            hit_list.append(rec)
+            hit_list.append(precision_at_k(pred,5))
             """
             Calcolare Predizioni ndcg per ogni batch e appendere in una lista
             Poi fare alla fine np.nanmean della lista
@@ -159,7 +161,7 @@ def model_eval(i_epoch, data, model, args,loss_obj, store_preds=False):
             # preds_right = [l for sl in preds_right for l in sl]
             metrics["ndcg"] = np.nanmean(ndcg_list)
             metrics["ndcg_1"] = np.nanmean(ndcg_list_at_1)
-            metrics["acc"] = 1 - np.nanmean(hit_list)
+            metrics["acc"] = np.nanmean(hit_list)
             metrics["prec5"] = np.nanmean(map_list)
             metrics["prec1"] = np.nanmean(map_list_at_1)
 
@@ -455,7 +457,7 @@ def train_phase_multi(args, settings_dict):
             torch.cuda.empty_cache()
             gc.collect()
             counterz+=1
-            if counterz == 100:
+            if counterz == 101:
                 break
         model.eval()
         logger.info("Validation...")
