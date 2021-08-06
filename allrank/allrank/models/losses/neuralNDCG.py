@@ -1,10 +1,10 @@
 import torch
 
-from allrank.data.dataset_loading import PADDED_Y_VALUE
-from allrank.models.losses import DEFAULT_EPS
-from allrank.models.losses.loss_utils import deterministic_neural_sort, sinkhorn_scaling, stochastic_neural_sort
-from allrank.models.metrics import dcg
-from allrank.models.model_utils import get_torch_device
+from allrank.allrank.data.dataset_loading import PADDED_Y_VALUE
+from allrank.allrank.models.losses import DEFAULT_EPS
+from allrank.allrank.models.losses.loss_utils import deterministic_neural_sort, sinkhorn_scaling, stochastic_neural_sort
+from allrank.allrank.models.metrics import dcg
+from allrank.allrank.models.model_utils import get_torch_device
 
 
 def neuralNDCG(y_pred, y_true, padded_value_indicator=PADDED_Y_VALUE, temperature=1., powered_relevancies=True, k=None,

@@ -1,7 +1,7 @@
 import numpy as np
 import torch
 
-from allrank.data.dataset_loading import PADDED_Y_VALUE
+from allrank.allrank.data.dataset_loading import PADDED_Y_VALUE
 
 
 def ndcg(y_pred, y_true, ats=None, gain_function=lambda x: torch.pow(2, x) - 1, padding_indicator=PADDED_Y_VALUE,

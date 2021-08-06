@@ -1,8 +1,8 @@
 import torch
 import torch.nn.functional as F
 
-from allrank.data.dataset_loading import PADDED_Y_VALUE
-from allrank.models.losses import DEFAULT_EPS
+from allrank.allrank.data.dataset_loading import PADDED_Y_VALUE
+from allrank.allrank.models.losses import DEFAULT_EPS
 
 
 def binary_listNet(y_pred, y_true, eps=DEFAULT_EPS, padded_value_indicator=PADDED_Y_VALUE):

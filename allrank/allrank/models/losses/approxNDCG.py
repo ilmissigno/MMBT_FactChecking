@@ -1,7 +1,8 @@
 import torch
 
-from allrank.data.dataset_loading import PADDED_Y_VALUE
-from allrank.models.losses import DEFAULT_EPS
+from allrank.allrank.data.dataset_loading import PADDED_Y_VALUE
+
+DEFAULT_EPS = 1e-10
 
 
 def approxNDCGLoss(y_pred, y_true, eps=DEFAULT_EPS, padded_value_indicator=PADDED_Y_VALUE, alpha=1.):
@@ -16,8 +17,8 @@ def approxNDCGLoss(y_pred, y_true, eps=DEFAULT_EPS, padded_value_indicator=PADDE
     :return: loss value, a torch.Tensor
     """
     device = y_pred.device
-    y_pred = y_pred.clone()
-    y_true = y_true.clone()
+    y_pred = y_pred.float()
+    y_true = y_true.float()
 
     padded_mask = y_true == padded_value_indicator
     y_pred[padded_mask] = float("-inf")
@@ -50,4 +51,4 @@ def approxNDCGLoss(y_pred, y_true, eps=DEFAULT_EPS, padded_value_indicator=PADDE
     approx_D = torch.log2(1. + approx_pos)
     approx_NDCG = torch.sum((G / approx_D), dim=-1)
 
-    return -torch.mean(approx_NDCG)
+    return torch.mean(approx_NDCG)

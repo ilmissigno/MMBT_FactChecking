@@ -4,6 +4,8 @@ from torch.nn import BCEWithLogitsLoss
 import torch.nn.functional as F
 from matchzoo.losses.rank_hinge_loss import RankHingeLoss
 from matchzoo.losses.rank_cross_entropy_loss import RankCrossEntropyLoss
+from allrank.allrank.models.losses import approxNDCG
+from allrank.allrank.models.losses import neuralNDCG
 
 PADDED_Y_VALUE = -1
 
@@ -82,5 +84,5 @@ class CrossSimilarity(torch.nn.Module):
         res = torch.flatten(res_1, start_dim=1)
         target = target.expand(res.size()[0],res.size()[0])
         neg_res = torch.flatten(res_2, start_dim=1)
-        return res,self.bce(res,target)
+        return res,approxNDCG.approxNDCGLoss(res,target)
     

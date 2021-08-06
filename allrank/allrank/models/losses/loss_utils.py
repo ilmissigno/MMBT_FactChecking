@@ -1,8 +1,8 @@
 import torch
 import numpy as np
 
-from allrank.models.losses import DEFAULT_EPS
-from allrank.models.model_utils import get_torch_device
+from allrank.allrank.models.losses import DEFAULT_EPS
+from allrank.allrank.models.model_utils import get_torch_device
 
 
 def sinkhorn_scaling(mat, mask=None, tol=1e-6, max_iter=50):
