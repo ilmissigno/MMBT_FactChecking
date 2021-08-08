@@ -135,18 +135,6 @@ def model_eval(i_epoch, data, model, args,loss_obj, store_preds=False):
             map_list.append(average_precision(pred))
             map_list_at_1.append(average_precision(pred))
             hit_list.append(precision_at_k(pred,5))
-            """
-            Calcolare Predizioni ndcg per ogni batch e appendere in una lista
-            Poi fare alla fine np.nanmean della lista
-            Uguale per precision at k e accuracy at k
-            Per la loss provare loss.sum()
-            """
-            # preds.append(pred)
-            # # # preds_right.append(pred_right)
-            # # # tgt_l = tgt_l.cpu().detach().numpy()
-            # tgt = tgt.cpu().detach().numpy()
-            # # # tgts_left.append(tgt_l)
-            # tgts.append(tgt)
 
         metrics = {"loss": np.nanmean(losses)}
         if args.task_type == "multilabel":
@@ -155,10 +143,8 @@ def model_eval(i_epoch, data, model, args,loss_obj, store_preds=False):
             metrics["macro_f1"] = f1_score(tgts, preds, average="macro")
             metrics["micro_f1"] = f1_score(tgts, preds, average="micro")
         else:
-            # tgts_left = [l for sl in tgts_left for l in sl]
             tgts = [l for sl in tgts for l in sl]
             preds = [l for sl in preds for l in sl]
-            # preds_right = [l for sl in preds_right for l in sl]
             metrics["ndcg"] = np.nanmean(ndcg_list)
             metrics["ndcg_1"] = np.nanmean(ndcg_list_at_1)
             metrics["acc"] = np.nanmean(hit_list)
@@ -166,7 +152,6 @@ def model_eval(i_epoch, data, model, args,loss_obj, store_preds=False):
             metrics["prec1"] = np.nanmean(map_list_at_1)
 
         if store_preds:
-            # store_preds_to_disk(tgts_left, preds_left, args)
             store_preds_to_disk(tgts, preds, args)
 
         return metrics
@@ -207,46 +192,9 @@ def model_forward(i_epoch, model, args,loss_obj, batch):
         neg_txt_right,neg_mask_right,neg_segment_right,neg_img_right = neg_txt_right.cuda(), neg_mask_right.cuda(), neg_segment_right.cuda(),neg_img_right.cuda()
         out_l, out_r, out_neg_r = model(txt_left,txt_right,mask_left,mask_right,segment_left,segment_right,img_left,img_right, neg_txt_right,neg_mask_right,neg_segment_right,neg_img_right)
     
-    # tgt_left = tgt_left.cuda()
     tgt = tgt.cuda()
     res,loss = loss_obj(out_l,out_r, tgt, out_neg_r)
-    return loss,res,tgt
-
-def model_forward_cpu(i_epoch, model, args, batch):
-    txt, segment, mask, img, tgt = batch
-    freeze_img = i_epoch < args.freeze_img
-    freeze_txt = i_epoch < args.freeze_txt
-
-    if args.model == "bow":
-        txt = txt.cuda()
-        out = model(txt)
-    elif args.model == "img":
-        img = img.cuda()
-        out = model(img)
-    elif args.model == "concatbow":
-        txt, img = txt.cuda(), img.cuda()
-        out = model(txt, img)
-    elif args.model == "bert":
-        txt, mask, segment = txt.cuda(), mask.cuda(), segment.cuda()
-        out = model(txt, mask, segment)
-    elif args.model == "concatbert":
-        txt, img = txt.cuda(), img.cuda()
-        mask, segment = mask.cuda(), segment.cuda()
-        out = model(txt, mask, segment, img)
-    else:
-        assert args.model == "mmbt" or args.model == "mmbt_cpu"
-        for param in model.enc.img_encoder.parameters():
-            param.requires_grad = not freeze_img
-        for param in model.enc.encoder.parameters():
-            param.requires_grad = not freeze_txt
-
-        # txt, img = txt.cuda(), img.cuda()
-        # mask, segment = mask.cuda(), segment.cuda()
-        out = model(txt, mask, segment, img)
-    
-    # tgt = tgt.cuda()
-    return out, tgt
-    
+    return loss,res,tgt    
 
 def model_forward_feat(lab_loader,i_batch,i_epoch, model, args, criterion, batch):
     txt, segment, mask, img, tgt = batch
@@ -277,8 +225,6 @@ def model_forward_feat(lab_loader,i_batch,i_epoch, model, args, criterion, batch
         for param in model.enc.encoder.parameters():
             param.requires_grad = not freeze_txt
 
-        # txt, img = txt, img
-        # mask, segment = mask, segment
         out = model(txt, mask, segment, img)
     
     # if not os.path.exists('./features/{}'.format(args.name)):
@@ -457,7 +403,7 @@ def train_phase_multi(args, settings_dict):
             torch.cuda.empty_cache()
             gc.collect()
             counterz+=1
-            if counterz == 101:
+            if counterz == 1000:
                 break
         model.eval()
         logger.info("Validation...")
