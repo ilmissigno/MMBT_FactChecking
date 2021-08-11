@@ -24,7 +24,7 @@ from random import randint
 from pytorch_pretrained_bert import BertAdam
 sys.path.append("")
 from matchzoo.metrics import normalized_discounted_cumulative_gain as ndcg
-from mmbt.data.helpers import get_data_loaders,get_data_loaders_left_right
+from mmbt.data.helpers import get_data_loaders,get_data_loaders_left_right,get_data_loaders_new
 from mmbt.models import get_model
 from mmbt.utils.logger import create_logger
 from mmbt.utils.utils import *
@@ -252,23 +252,41 @@ def train(args):
     model.cuda()
     torch.save(args, os.path.join(args.savedir, "args.pt"))
     
-    
     start_epoch, global_step, n_no_improve, best_metric = 0, 0, 0, -np.inf
-    settings_dict = {
-        'model':model,
-        'optimizer':optimizer1,
-        'criterion': loss_obj,
-        'scheduler':scheduler1,
-        'logger':logger,
-        'start_epoch':start_epoch,
-        'global_step':global_step,
-        'train_loader':train_loader,
-        'val_loader':val_loader,
-        'test_loaders':test_loaders,
-        'best_metric':best_metric,
-        'n_no_improve':n_no_improve
-    }
-    train_phase_multi(args,settings_dict)
+    if args.doc_extraction:
+        train_query_loader, train_doc_loader, val_query_loader, val_doc_loader, test_query_loaders, test_doc_loaders = get_data_loaders_new(args)
+        settings_dict = {
+            'model':model,
+            'optimizer':optimizer1,
+            'criterion': loss_obj,
+            'scheduler':scheduler1,
+            'logger':logger,
+            'start_epoch':start_epoch,
+            'global_step':global_step,
+            'train_loader':train_loader,
+            'val_loader':val_loader,
+            'test_loaders':test_loaders,
+            'best_metric':best_metric,
+            'n_no_improve':n_no_improve
+        }
+        doc_feat_extraction(args,settings_dict)
+    else:
+        settings_dict = {
+            'model':model,
+            'optimizer':optimizer1,
+            'criterion': loss_obj,
+            'scheduler':scheduler1,
+            'logger':logger,
+            'start_epoch':start_epoch,
+            'global_step':global_step,
+            'train_loader':train_loader,
+            'val_loader':val_loader,
+            'test_loaders':test_loaders,
+            'best_metric':best_metric,
+            'n_no_improve':n_no_improve
+        }
+        train_phase_multi(args,settings_dict)
+
 
 def cli_main():
     parser = configargparse.ArgParser(default_config_files=['configurazione.conf'])
@@ -444,6 +462,21 @@ def train_phase_multi(args, settings_dict):
     test_metrics = model_eval(np.inf, test_loaders,model,args,loss_obj, store_preds=True)
     log_metrics(f"Test - ", test_metrics, args, logger)
 
+
+def doc_feat_extraction(args, settings_dict):
+    model = settings_dict['model']
+    optimizer1 = settings_dict['optimizer']
+    scheduler1 = settings_dict['scheduler']
+    loss_obj = settings_dict['criterion']
+    logger = settings_dict['logger']
+    start_epoch = settings_dict['start_epoch']
+    global_step = settings_dict['global_step']
+    train_loader = settings_dict['train_loader']
+    val_loader = settings_dict['val_loader']
+    test_loaders = settings_dict['test_loaders']
+    best_metric = settings_dict['best_metric']
+    n_no_improve = settings_dict['n_no_improve']
+    
 
 
 if __name__ == "__main__":
