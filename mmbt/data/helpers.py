@@ -128,67 +128,29 @@ def collate_fn(batch, args):
         mask_tensor_neg_d[i_batch, :length_neg_d] = 1
     return text_tensor_q, segment_tensor_q, mask_tensor_q, img_tensor_q, text_tensor_d, segment_tensor_d, mask_tensor_d, img_tensor_d, text_tensor_neg_d, segment_tensor_neg_d, mask_tensor_neg_d, img_tensor_neg_d, tgt_tensor
 
-def collate_fn_2(batch, args, multi):
-    if multi == "query":
-        lens_q = [len(row[0]) for row in batch]
-        bsz, max_seq_len_q = len(batch), max(lens_q)
-        mask_tensor_q = torch.zeros(bsz, max_seq_len_q).long()
-        text_tensor_q = torch.zeros(bsz, max_seq_len_q).long()
-        segment_tensor_q = torch.zeros(bsz, max_seq_len_q).long()
-        img_tensor_q = None
-        if args.model in ["img", "concatbow", "concatbert", "mmbt"]:
-            img_tensor_q = torch.stack([row[2] for row in batch])
-        if args.task_type == "multilabel":
-            # Multilabel case
-            tgt_tensor = torch.stack([row[3] for row in batch])
-        else:
-            # Single Label case
-            tgt_tensor = torch.cat([row[3] for row in batch]).long()
-        # sentence_q, segment_q, image_q, sentence_d, segment_d, image_d, neg_sentence_d, neg_segment_d, neg_img_d, label
-        for i_batch, (input_row, length_q) in enumerate(zip(batch, lens_q)):
-            tokens_q = input_row[0]
-            segment_q = input_row[1]
-            text_tensor_q[i_batch, :length_q] = tokens_q
-            segment_tensor_q[i_batch, :length_q] = segment_q
-            mask_tensor_q[i_batch, :length_q] = 1
-        return text_tensor_q, segment_tensor_q, mask_tensor_q, img_tensor_q, tgt_tensor
+def collate_fn_2(batch, args):
+    lens_q = [len(row[0]) for row in batch]
+    bsz, max_seq_len_q = len(batch), max(lens_q)
+    mask_tensor_q = torch.zeros(bsz, max_seq_len_q).long()
+    text_tensor_q = torch.zeros(bsz, max_seq_len_q).long()
+    segment_tensor_q = torch.zeros(bsz, max_seq_len_q).long()
+    img_tensor_q = None
+    if args.model in ["img", "concatbow", "concatbert", "mmbt"]:
+        img_tensor_q = torch.stack([row[2] for row in batch])
+    if args.task_type == "multilabel":
+        # Multilabel case
+        tgt_tensor = torch.stack([row[3] for row in batch])
     else:
-        lens_d = [len(row[0]) for row in batch]
-        lens_neg_d = [len(row[3]) for row in batch]
-        bsz, max_seq_len_d, max_seq_neg_len_d = len(batch), max(lens_d), max(lens_neg_d)
-        mask_tensor_d = torch.zeros(bsz, max_seq_len_d).long()
-        mask_tensor_neg_d = torch.zeros(bsz, max_seq_neg_len_d).long()
-        text_tensor_d = torch.zeros(bsz, max_seq_len_d).long()
-        text_tensor_neg_d = torch.zeros(bsz, max_seq_neg_len_d).long()
-        segment_tensor_d = torch.zeros(bsz, max_seq_len_d).long()
-        segment_tensor_neg_d = torch.zeros(bsz, max_seq_neg_len_d).long()    
-        img_tensor_d = None
-        if args.model in ["img", "concatbow", "concatbert", "mmbt"]:
-            img_tensor_d = torch.stack([row[2] for row in batch])
-        img_tensor_neg_d = None
-        if args.model in ["img", "concatbow", "concatbert", "mmbt"]:
-            img_tensor_neg_d = torch.stack([row[5] for row in batch])
-        if args.task_type == "multilabel":
-            # Multilabel case
-            tgt_tensor = torch.stack([row[6] for row in batch])
-        else:
-            # Single Label case
-            tgt_tensor = torch.cat([row[6] for row in batch]).long()
-    
-        # sentence_q, segment_q, image_q, sentence_d, segment_d, image_d, neg_sentence_d, neg_segment_d, neg_img_d, label
-        for i_batch, (input_row, length_d, length_neg_d) in enumerate(zip(batch, lens_d, lens_neg_d)):
-            tokens_d = input_row[0]
-            segment_d = input_row[1]
-            neg_tokens_d = input_row[3]
-            neg_segment_d = input_row[4]
-            text_tensor_d[i_batch, :length_d] = tokens_d
-            text_tensor_neg_d[i_batch, :length_neg_d] = neg_tokens_d
-            segment_tensor_d[i_batch, :length_d] = segment_d
-            segment_tensor_neg_d[i_batch, :length_neg_d] = neg_segment_d
-            mask_tensor_d[i_batch, :length_d] = 1
-            mask_tensor_neg_d[i_batch, :length_neg_d] = 1
-    return text_tensor_d, segment_tensor_d, mask_tensor_d, img_tensor_d, text_tensor_neg_d, segment_tensor_neg_d, mask_tensor_neg_d, img_tensor_neg_d, tgt_tensor
-
+        # Single Label case
+        tgt_tensor = torch.cat([row[3] for row in batch]).long()
+    # sentence_q, segment_q, image_q, sentence_d, segment_d, image_d, neg_sentence_d, neg_segment_d, neg_img_d, label
+    for i_batch, (input_row, length_q) in enumerate(zip(batch, lens_q)):
+        tokens_q = input_row[0]
+        segment_q = input_row[1]
+        text_tensor_q[i_batch, :length_q] = tokens_q
+        segment_tensor_q[i_batch, :length_q] = segment_q
+        mask_tensor_q[i_batch, :length_q] = 1
+    return text_tensor_q, segment_tensor_q, mask_tensor_q, img_tensor_q, tgt_tensor
 
 def get_data_loaders(args):
     tokenizer = (
@@ -483,18 +445,17 @@ def get_data_loaders_new(args):
         args,
     )
     
-    args.train_data_len = len(train)
+    args.train_data_len = len(train_d)
 
 
-    collate_q = functools.partial(collate_fn_2, args=(args,'query'))
-    collate_d = functools.partial(collate_fn_2, args=(args,'docs'))
+    collate_2 = functools.partial(collate_fn_2, args=args)
 
     train_loader_q = DataLoader(
         train_q,
         batch_size=args.batch_sz,
         shuffle=True,
         num_workers=args.n_workers,
-        collate_fn=collate_q,
+        collate_fn=collate_2,
         pin_memory=True
     )
 
@@ -503,7 +464,7 @@ def get_data_loaders_new(args):
         batch_size=args.batch_sz,
         shuffle=True,
         num_workers=args.n_workers,
-        collate_fn=collate_d,
+        collate_fn=collate_2,
         pin_memory=True
     )
 
@@ -512,7 +473,7 @@ def get_data_loaders_new(args):
         batch_size=args.batch_sz,
         shuffle=False,
         num_workers=args.n_workers,
-        collate_fn=collate_q,
+        collate_fn=collate_2,
         pin_memory=True
     )
 
@@ -521,7 +482,7 @@ def get_data_loaders_new(args):
         batch_size=args.batch_sz,
         shuffle=False,
         num_workers=args.n_workers,
-        collate_fn=collate_d,
+        collate_fn=collate_2,
         pin_memory=True
     )
 
@@ -530,7 +491,7 @@ def get_data_loaders_new(args):
         batch_size=args.batch_sz,
         shuffle=False,
         num_workers=args.n_workers,
-        collate_fn=collate_q,
+        collate_fn=collate_2,
         pin_memory=True
     )
 
@@ -539,7 +500,7 @@ def get_data_loaders_new(args):
         batch_size=args.batch_sz,
         shuffle=False,
         num_workers=args.n_workers,
-        collate_fn=collate_d,
+        collate_fn=collate_2,
         pin_memory=True
     )
 

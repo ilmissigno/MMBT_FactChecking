@@ -29,6 +29,7 @@ from mmbt.models import get_model
 from mmbt.utils.logger import create_logger
 from mmbt.utils.utils import *
 from mmbt.losses.CrossSimilarity import CrossSimilarity
+from mmbt.losses.CrossSimilarity_feat import CrossSimilarity_feat
 from mmbt.metrics.RankMetrics import *
 from mmbt.metrics.RankMetrics import ndcg as normalized_dcg
 
@@ -196,36 +197,18 @@ def model_forward(i_epoch, model, args,loss_obj, batch):
     res,loss = loss_obj(out_l,out_r, tgt, out_neg_r)
     return loss,res,tgt    
 
-def model_forward_feat(lab_loader,i_batch,i_epoch, model, args, criterion, batch):
+def model_forward_feat(i_epoch, model, args, batch):
     txt, segment, mask, img, tgt = batch
-
     freeze_img = i_epoch < args.freeze_img
     freeze_txt = i_epoch < args.freeze_txt
 
-    if args.model == "bow":
-        txt = txt.cuda()
-        out = model(txt)
-    elif args.model == "img":
-        img = img.cuda()
-        out = model(img)
-    elif args.model == "concatbow":
-        txt, img = txt.cuda(), img.cuda()
-        out = model(txt, img)
-    elif args.model == "bert":
-        txt, mask, segment = txt.cuda(), mask.cuda(), segment.cuda()
-        out = model(txt, mask, segment)
-    elif args.model == "concatbert":
-        txt, img = txt.cuda(), img.cuda()
-        mask, segment = mask.cuda(), segment.cuda()
-        out = model(txt, mask, segment, img)
-    else:
-        assert args.model == "mmbt" or args.model == "mmbt_cpu"
-        for param in model.enc.img_encoder.parameters():
-            param.requires_grad = not freeze_img
-        for param in model.enc.encoder.parameters():
-            param.requires_grad = not freeze_txt
+    assert args.model == "mmbt" or args.model == "mmbt_cpu"
+    for param in model.enc.img_encoder.parameters():
+        param.requires_grad = not freeze_img
+    for param in model.enc.encoder.parameters():
+        param.requires_grad = not freeze_txt
 
-        out = model(txt, mask, segment, img)
+    out = model(txt, mask, segment, img)
     
     # if not os.path.exists('./features/{}'.format(args.name)):
     #     os.makedirs('./features/{}'.format(args.name))
@@ -237,7 +220,10 @@ def model_forward_feat(lab_loader,i_batch,i_epoch, model, args, criterion, batch
     return out, tgt
 
 def train(args):
-    loss_obj = CrossSimilarity()
+    if args.doc_extraction:
+        loss_obj = CrossSimilarity_feat()
+    else:
+        loss_obj = CrossSimilarity()
     logger = create_logger("%s/logfile.log" % args.savedir, args)
     seed_val = randint(0, 10000)
     logger.warning("*"*50+" SEED : "+str(seed_val)+" "+"*"*50)
@@ -263,9 +249,12 @@ def train(args):
             'logger':logger,
             'start_epoch':start_epoch,
             'global_step':global_step,
-            'train_loader':train_loader,
-            'val_loader':val_loader,
-            'test_loaders':test_loaders,
+            'train_loader_q':train_query_loader,
+            'train_loader_d':train_doc_loader,
+            'val_loader_q':val_query_loader,
+            'val_loader_d':val_doc_loader,
+            'test_loaders_q':test_query_loaders,
+            'test_loaders_d':test_doc_loaders,
             'best_metric':best_metric,
             'n_no_improve':n_no_improve
         }
@@ -471,11 +460,41 @@ def doc_feat_extraction(args, settings_dict):
     logger = settings_dict['logger']
     start_epoch = settings_dict['start_epoch']
     global_step = settings_dict['global_step']
-    train_loader = settings_dict['train_loader']
-    val_loader = settings_dict['val_loader']
-    test_loaders = settings_dict['test_loaders']
+    train_query_loader = settings_dict['train_loader_q']
+    train_doc_loader = settings_dict['train_loader_d']
+    val_query_loader = settings_dict['val_loader_q']
+    val_doc_loader = settings_dict['val_loader_d']
+    test_query_loaders = settings_dict['test_loaders_q']
+    test_doc_loaders = settings_dict['test_loaders_d']
     best_metric = settings_dict['best_metric']
     n_no_improve = settings_dict['n_no_improve']
+    logger.info("Doc Extraction..")
+    for i_epoch in range(start_epoch,args.max_epochs):
+        logger.warning("*"*50+" EPOCH "+str(i_epoch)+" "+"*"*50)
+        train_losses = []
+        counterz = 0
+        for batch_d in tqdm(train_doc_loader, total=len(train_doc_loader)):
+            model.train()
+            optimizer1.zero_grad()
+            model.zero_grad()
+            with torch.cuda.amp.autocast():
+                out_d,tgt = model_forward_feat(i_epoch, model, args, batch_d)
+            for batch_q in tqdm(train_query_loader, total=len(train_query_loader)):
+                model.eval()
+                with torch.cuda.amp.autocast():
+                    out_q,_ = model_forward_feat(i_epoch, model, args, batch_q)
+                loss = loss_obj(out_d,out_q,tgt)
+                if args.gradient_accumulation_steps > 1:
+                    loss = loss / args.gradient_accumulation_steps
+                train_losses.append(loss.item())
+                loss.backward()
+                optimizer1.step()
+                optimizer1.zero_grad()
+                torch.cuda.empty_cache()
+                gc.collect()
+                counterz+=1
+                if counterz == 1000:
+                    break
     
 
 

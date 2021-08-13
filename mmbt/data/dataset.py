@@ -254,26 +254,11 @@ class TsvDatasetMulti(Dataset):
                     : (self.args.max_seq_len - 1)
                 ]
                 )
-                #negative random document
-                j_idx = randint(0,len(self.data)-1)
-                neg_sentence_d = (
-                self.text_start_token
-                + self.tokenizer(self.data.loc[j_idx,"DocText"])[
-                    : (self.args.max_seq_len - 1)
-                ]
-                )
                 segment_d = torch.zeros(len(sentence_d))
-                neg_segment_d = torch.zeros(len(neg_sentence_d))
                 sentence_d = torch.LongTensor(
                     [
                         self.vocab.stoi[w] if w in self.vocab.stoi else self.vocab.stoi["[UNK]"]
                         for w in sentence_d
-                    ]
-                )
-                neg_sentence_d = torch.LongTensor(
-                    [
-                        self.vocab.stoi[w] if w in self.vocab.stoi else self.vocab.stoi["[UNK]"]
-                        for w in neg_sentence_d
                     ]
                 )
                 label = torch.LongTensor(
@@ -294,31 +279,13 @@ class TsvDatasetMulti(Dataset):
                         image_d = Image.fromarray(128 * np.ones((256, 256, 3), dtype=np.uint8))
                     image_d = self.transforms(image_d)
                 
-                neg_img_d = None
-                if self.args.model in ["img", "concatbow", "concatbert", "mmbt"]:
-                    if self.data.loc[j_idx,"DocID"]:
-                        neg_img_name_d = self.args.data_path+'/'+self.args.task+'/images/doc/'+str(self.data.loc[j_idx,'DocID'])+".png"
-                        try:
-                            neg_img_d = Image.open(
-                                neg_img_name_d
-                            ).convert("RGB")
-                        except PIL.UnidentifiedImageError:
-                            neg_img_d = cv2.imread(neg_img_name_d)
-                            neg_img_d = cv2.cvtColor(neg_img_d,cv2.COLOR_BGR2RGB)
-                    else:
-                        neg_img_d = Image.fromarray(128 * np.ones((256, 256, 3), dtype=np.uint8))
-                    neg_img_d = self.transforms(neg_img_d)
                 if self.args.model == "mmbt":
                     # The first SEP is part of Image Token.
                     segment_d = segment_d[1:]
                     sentence_d = sentence_d[1:]
                     # The first segment (0) is of images.
                     segment_d += 1
-                    neg_segment_d = neg_segment_d[1:]
-                    neg_sentence_d = neg_sentence_d[1:]
-                    # The first segment (0) is of images.
-                    neg_segment_d += 1
-                return sentence_d, segment_d, image_d, neg_sentence_d, neg_segment_d, neg_img_d, label
+                return sentence_d, segment_d, image_d, label
         else:
             sentence_q = (
             self.text_start_token
