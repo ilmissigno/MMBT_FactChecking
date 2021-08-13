@@ -12,7 +12,7 @@ from mmbt.models.bow import GloveBowClf
 from mmbt.models.concat_bert import MultimodalConcatBertClf
 from mmbt.models.concat_bow import  MultimodalConcatBowClf
 from mmbt.models.image import ImageClf
-from mmbt.models.mmbt import MultimodalBertClf
+from mmbt.models.mmbt_feat import MultimodalBertClf
 
 
 MODELS = {

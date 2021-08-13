@@ -69,6 +69,7 @@ def get_args(parser):
     parser.add("--task_type", type=str, default="multilabel", choices=["multilabel", "classification","extraction"])
     parser.add("--warmup", type=float, default=0.1)
     parser.add("--weight_classes", type=int, default=1)
+    parser.add("--doc_extraction", default=False)
     
 
 def get_criterion(args):
@@ -207,7 +208,10 @@ def model_forward_feat(i_epoch, model, args, batch):
         param.requires_grad = not freeze_img
     for param in model.enc.encoder.parameters():
         param.requires_grad = not freeze_txt
-
+    
+    txt, img = txt.cuda(), img.cuda()
+    mask, segment = mask.cuda(), segment.cuda()
+    tgt = tgt.cuda()
     out = model(txt, mask, segment, img)
     
     # if not os.path.exists('./features/{}'.format(args.name)):
@@ -473,17 +477,17 @@ def doc_feat_extraction(args, settings_dict):
         logger.warning("*"*50+" EPOCH "+str(i_epoch)+" "+"*"*50)
         train_losses = []
         counterz = 0
+        model.train()
+        optimizer1.zero_grad()
+        model.zero_grad()
+        query_iterator = iter(train_query_loader)
         for batch_d in tqdm(train_doc_loader, total=len(train_doc_loader)):
-            model.train()
-            optimizer1.zero_grad()
-            model.zero_grad()
-            with torch.cuda.amp.autocast():
-                out_d,tgt = model_forward_feat(i_epoch, model, args, batch_d)
-            for batch_q in tqdm(train_query_loader, total=len(train_query_loader)):
-                model.eval()
+            try:
+                batch_q = next(query_iterator)
                 with torch.cuda.amp.autocast():
+                    out_d,tgt = model_forward_feat(i_epoch, model, args, batch_d)
                     out_q,_ = model_forward_feat(i_epoch, model, args, batch_q)
-                loss = loss_obj(out_d,out_q,tgt)
+                _,loss = loss_obj(out_d,out_q,tgt)
                 if args.gradient_accumulation_steps > 1:
                     loss = loss / args.gradient_accumulation_steps
                 train_losses.append(loss.item())
@@ -493,8 +497,12 @@ def doc_feat_extraction(args, settings_dict):
                 torch.cuda.empty_cache()
                 gc.collect()
                 counterz+=1
-                if counterz == 1000:
+                if counterz == 100:
                     break
+            except StopIteration:
+                doc_iterator = iter(train_doc_loader)
+                batch_d = next(doc_iterator)
+        logger.info("Train Loss : "+str(np.nanmean(train_losses)))
     
 
 
