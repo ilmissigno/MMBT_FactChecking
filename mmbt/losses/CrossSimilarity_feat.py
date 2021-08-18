@@ -16,7 +16,10 @@ class CrossSimilarity_feat(torch.nn.Module):
         self.ce = nn.CrossEntropyLoss()
         self.hinge = RankHingeLoss()
         #self.num_neg = 1
-        
+    
+    def cos_sim(self,out_l,out_r):
+        return F.cosine_similarity(out_l,out_r)
+
     def similarities(self,out_l,out_r):
         out_l = out_l / torch.norm(out_l,dim=1,keepdim=True)
         out_r = out_r / torch.norm(out_r,p=2,dim=1,keepdim=True)
@@ -79,8 +82,9 @@ class CrossSimilarity_feat(torch.nn.Module):
         
     
     def forward(self, output_l,output_r, target):
+        score = self.cos_sim(output_l,output_r)
         res_1 = self.similarities(output_l,output_r)
         res = torch.flatten(res_1, start_dim=1)
         target = target.expand(res.size()[0],res.size()[0])
-        return res,approxNDCG.approxNDCGLoss(res,target)
+        return score,res,approxNDCG.approxNDCGLoss(res,target)
     

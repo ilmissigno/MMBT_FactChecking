@@ -491,18 +491,18 @@ def doc_feat_extraction(args, settings_dict):
                 with torch.cuda.amp.autocast():
                     out_d,tgt = model_forward_feat(i_epoch, model, args, batch_d)
                     out_q,_ = model_forward_feat(i_epoch, model, args, batch_q)
-                res,loss = loss_obj(out_d,out_q,tgt)
+                score,res,loss = loss_obj(out_d,out_q,tgt)
                 if args.gradient_accumulation_steps > 1:
                     loss = loss / args.gradient_accumulation_steps
                 train_losses.append(loss.item())
                 loss.backward()
                 optimizer1.step()
                 optimizer1.zero_grad()
-                similarities_res.append(res.cpu().detach().numpy())
+                similarities_res.append(score)
                 torch.cuda.empty_cache()
                 gc.collect()
                 q_counterz+=1
-                if q_counterz == 100:
+                if q_counterz == 10:
                     break
             #? Similarità qui tra singolo doc e query valutate (media?)
             total_similarities.append(np.nanmean(similarities_res))
