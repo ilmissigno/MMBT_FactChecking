@@ -476,10 +476,10 @@ def doc_feat_extraction(args, settings_dict):
     logger.info("Doc Extraction..")
     for i_epoch in range(start_epoch,args.max_epochs):
         logger.warning("*"*50+" EPOCH "+str(i_epoch)+" "+"*"*50)
+        model.train()
         train_losses = []
         total_similarities = []
         counterz = 0
-        model.train()
         optimizer1.zero_grad()
         model.zero_grad()
         iter_doc = iter(train_doc_loader)
@@ -498,11 +498,11 @@ def doc_feat_extraction(args, settings_dict):
                 loss.backward()
                 optimizer1.step()
                 optimizer1.zero_grad()
-                similarities_res.append(score)
+                similarities_res.append(score.cpu().detach().numpy())
                 torch.cuda.empty_cache()
                 gc.collect()
                 q_counterz+=1
-                if q_counterz == 10:
+                if q_counterz == 100:
                     break
             #? Similarità qui tra singolo doc e query valutate (media?)
             total_similarities.append(np.nanmean(similarities_res))
@@ -511,7 +511,6 @@ def doc_feat_extraction(args, settings_dict):
                 break
             
         logger.info("Total similarity : "+str(np.nanmax(total_similarities)))
-        logger.info("Train Loss : "+str(np.nanmean(train_losses)))
     
 
 
