@@ -474,6 +474,12 @@ def doc_feat_extraction(args, settings_dict):
     best_metric = settings_dict['best_metric']
     n_no_improve = settings_dict['n_no_improve']
     logger.info("Doc Extraction..")
+    """
+    Addestrare il modello come normale (nel branch master)
+    Poi fare un caricamento dei checkpoint del modello
+    poi per ogni documento confrontare con ogni query e prendere il massimo della similarità
+    questo per validation e test
+    """
     for i_epoch in range(start_epoch,args.max_epochs):
         logger.warning("*"*50+" EPOCH "+str(i_epoch)+" "+"*"*50)
         model.train()
