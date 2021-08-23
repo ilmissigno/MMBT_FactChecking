@@ -479,6 +479,7 @@ def doc_feat_extraction(args, settings_dict):
     Poi fare un caricamento dei checkpoint del modello
     poi per ogni documento confrontare con ogni query e prendere il massimo della similarità
     questo per validation e test
+    
     """
     for i_epoch in range(start_epoch,args.max_epochs):
         logger.warning("*"*50+" EPOCH "+str(i_epoch)+" "+"*"*50)
