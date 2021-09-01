@@ -21,6 +21,7 @@ import torch.optim as optim
 import sys
 import gc
 from random import randint
+from datetime import date
 from pytorch_pretrained_bert import BertAdam
 sys.path.append("")
 import itertools
@@ -480,28 +481,37 @@ def doc_feat_extraction(args, settings_dict):
     poi per ogni documento confrontare con ogni query e prendere il massimo della similarità
     questo per validation e test
     """
+    actual_epoch = 0
     model.train()
-    train_counterz = 0
     for i_epoch in range(start_epoch,args.max_epochs):
         logger.warning("*"*50+" EPOCH "+str(i_epoch)+" "+"*"*50)
         optimizer1.zero_grad()
         model.zero_grad()
         iter_doc = iter(train_doc_loader)
-        d_counterz=0
         for batch_d in tqdm(iter_doc, total=len(train_doc_loader)):
             with torch.cuda.amp.autocast():
                 out_d,tgt = model_forward_feat(i_epoch, model, args, batch_d)
             optimizer1.step()
             optimizer1.zero_grad()
             torch.cuda.empty_cache()
-            gc.collect()
-            d_counterz+=1
-            if d_counterz == 100:
-                break
-        train_counterz+=1
-        if train_counterz == 3:
-            break
+            gc.collect()   
+        actual_epoch = i_epoch
+    logger.info("*"*50+" Saving model to checkpoint for epoch : "+str(actual_epoch)+" "+"*"*50)
+    save_checkpoint(
+    {
+        "epoch": actual_epoch + 1,
+        "state_dict": model.state_dict(),
+        "optimizer": optimizer1.state_dict(),
+        "scheduler": scheduler1.state_dict(),
+        "n_no_improve": n_no_improve,
+        "best_metric": best_metric,
+    },
+    False,
+    args.savedir,"doc_extraction_model.pt")
+    
     logger.warning("*"*50+" VALIDATION "+"*"*50)
+    logger.info("*"*50+" Loading model from checkpoint "+"*"*50)
+    load_checkpoint(model, os.path.join(args.savedir, "doc_extraction_model.pt"))
     model.eval()
     train_losses = []
     val_total_similarities = []
@@ -531,11 +541,13 @@ def doc_feat_extraction(args, settings_dict):
         #? Similarità qui tra singolo doc e query valutate (media?)
         val_total_similarities.append(np.nanmean(val_similarities_res))
         val_counterz+=1
-        if val_counterz == 3:
+        if val_counterz == 50:
             break
     logger.info("VALIDATION : Total similarity per DOCUMENT : ")
     print(val_total_similarities)
     logger.info("VALIDATION : Total similarity of ALL DOCUMENTS : "+str(np.nanmax(val_total_similarities)))
+    
+    
     logger.warning("*"*50+" TEST "+"*"*50)
     model.eval()
     train_losses = []
@@ -566,7 +578,7 @@ def doc_feat_extraction(args, settings_dict):
         #? Similarità qui tra singolo doc e query valutate (media?)
         test_total_similarities.append(np.nanmean(test_similarities_res))
         test_counterz+=1
-        if test_counterz == 3:
+        if test_counterz == 50:
             break
     logger.info("TEST : Total similarity per DOCUMENT : ")
     print(test_total_similarities)
