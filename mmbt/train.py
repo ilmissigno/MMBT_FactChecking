@@ -541,7 +541,7 @@ def doc_feat_extraction(args, settings_dict):
         #? Similarità qui tra singolo doc e query valutate (media?)
         val_total_similarities.append(np.nanmean(val_similarities_res))
         val_counterz+=1
-        if val_counterz == 50:
+        if val_counterz == 5:
             break
     logger.info("VALIDATION : Total similarity per DOCUMENT : ")
     print(val_total_similarities)
@@ -578,7 +578,7 @@ def doc_feat_extraction(args, settings_dict):
         #? Similarità qui tra singolo doc e query valutate (media?)
         test_total_similarities.append(np.nanmean(test_similarities_res))
         test_counterz+=1
-        if test_counterz == 50:
+        if test_counterz == 5:
             break
     logger.info("TEST : Total similarity per DOCUMENT : ")
     print(test_total_similarities)
