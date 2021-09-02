@@ -83,8 +83,8 @@ def log_metrics(set_name, metrics, args, logger):
         )
     else:
         logger.info(
-            "{}: Loss: {:.5f} | NDCG@5: {:.5f} | NDCG@1: {:.5f} | Hit@5: {:.5f} | Precision@5: {:.5f} | Precision@1: {:.5f}".format(
-                set_name, metrics["loss"], metrics["ndcg"], metrics["ndcg_1"], metrics["acc"], metrics["prec5"], metrics["prec1"]
+            "{}: Loss: {:.5f} | NDCG@5: {:.5f} | NDCG@3: {:.5f} | NDCG@1: {:.5f} | Hit@5: {:.5f} | Hit@3: {:.5f} | Hit@1: {:.5f} | Precision@5: {:.5f} | Precision@1: {:.5f}".format(
+                set_name, metrics["loss"], metrics["ndcg_5"], metrics["ndcg_3"], metrics["ndcg_1"], metrics["acc_5"], metrics["acc_3"], metrics["acc_1"], metrics["prec5"], metrics["prec1"]
             )
         )
 
