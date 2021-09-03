@@ -12,6 +12,7 @@ import numpy as np
 import random
 import shutil
 import os
+import csv
 
 import torch
 
@@ -88,6 +89,11 @@ def log_metrics(set_name, metrics, args, logger):
             )
         )
 
+def save_metrics(metrics, txt_file):
+    with open(txt_file, 'w') as f: 
+        for key, value in metrics.items(): 
+            f.write('%s:%s\n' % (key, value))
+    
 
 @contextlib.contextmanager
 def numpy_seed(seed, *addl_seeds):

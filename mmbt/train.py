@@ -23,7 +23,6 @@ import gc
 from random import randint
 from pytorch_pretrained_bert import BertAdam
 sys.path.append("")
-from matchzoo.metrics import normalized_discounted_cumulative_gain as ndcg
 from mmbt.data.helpers import get_data_loaders,get_data_loaders_left_right
 from mmbt.models import get_model
 from mmbt.utils.logger import create_logger
@@ -368,6 +367,7 @@ def train_phase_multi(args, settings_dict):
     logger.info("Test...")
     load_checkpoint(model, os.path.join(args.savedir, "model_best.pt"))
     test_metrics = model_eval(np.inf, test_loaders,model,args,loss_obj, store_preds=True)
+    save_metrics(test_metrics,"snopes_loss_approxndcg_test.txt")
     log_metrics(f"Test - ", test_metrics, args, logger)
 
 

@@ -1,11 +1,7 @@
 import torch
 import torch.nn as nn
 from torch.nn import BCEWithLogitsLoss
-import torch.nn.functional as F
-from matchzoo.losses.rank_hinge_loss import RankHingeLoss
-from matchzoo.losses.rank_cross_entropy_loss import RankCrossEntropyLoss
 from allrank.allrank.models.losses import approxNDCG
-from allrank.allrank.models.losses import neuralNDCG
 
 PADDED_Y_VALUE = -1
 
@@ -14,8 +10,7 @@ class CrossSimilarity(torch.nn.Module):
     def __init__(self):
         super(CrossSimilarity, self).__init__()
         self.ce = nn.CrossEntropyLoss()
-        self.hinge = RankHingeLoss()
-        #self.num_neg = 1
+        self.triplet = nn.TripletMarginLoss(margin=1.0, p=2)
         
     def similarities(self,out_l,out_r):
         out_l = out_l / torch.norm(out_l,dim=1,keepdim=True)
@@ -46,36 +41,6 @@ class CrossSimilarity(torch.nn.Module):
         loss_output = torch.sum(document_loss) / torch.sum(sum_valid)
 
         return loss_output.mean()
-    
-    def hinge_loss(self,neg_p,pos_p,target):
-        # """
-        # Hinge pairwise loss function.
-
-        # Parameters
-        # ----------
-
-        # positive_predictions: tensor
-        #     Tensor containing predictions for known positive items.
-        # negative_predictions: tensor
-        #     Tensor containing predictions for sampled negative items.
-
-        # Returns
-        # -------
-
-        # loss, float
-        #     The mean value of the loss function.
-        # """
-        # # checked, usually we need to use a threshold as soft-margin (but this function does not have it)
-        return F.margin_ranking_loss(
-            pos_p, neg_p, target,
-            margin=0.,
-            reduction='mean',
-        )
-        # loss = torch.clamp(pt - gt + 1.0, 0.0)
-        # return loss.mean()
-        # # loss = torch.mean(torch.max(1. - gt * pt))
-        # # return loss
-        # return self.hinge(pt,gt)
         
     
     def forward(self, output_l,output_r, target, output_neg_r):
@@ -85,4 +50,5 @@ class CrossSimilarity(torch.nn.Module):
         target = target.expand(res.size()[0],res.size()[0])
         neg_res = torch.flatten(res_2, start_dim=1)
         return res,approxNDCG.approxNDCGLoss(res,target)
+        # return res,self.triplet(output_l,output_r,output_neg_r)
     
