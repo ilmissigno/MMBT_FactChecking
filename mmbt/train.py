@@ -40,8 +40,8 @@ def get_args(parser):
     parser.add("--drop_img_percent", type=float, default=0.0)
     parser.add("--dropout", type=float, default=0.1)
     parser.add("--embed_sz", type=int, default=300)
-    parser.add("--freeze_img", type=int, default=0)
-    parser.add("--freeze_txt", type=int, default=0)
+    parser.add("--freeze_img", default=False)
+    parser.add("--freeze_txt", default=False)
     parser.add("--glove_path", type=str, default="/path/to/glove_embeds/glove.840B.300d.txt")
     parser.add("--gradient_accumulation_steps", type=int, default=24)
     parser.add("--evaluation_steps", type=int, default=24)
@@ -125,20 +125,20 @@ def model_eval(i_epoch, data, model, args,loss_obj, store_preds=False):
             if args.task_type == "multilabel":
                 pred = torch.sigmoid(out).cpu().detach().numpy() > 0.5
             else:
-                pred = torch.nn.functional.softmax(out, dim=1).argmax(dim=1).cpu().detach().numpy()
+                pred = torch.nn.functional.softmax(out, dim=1).cpu().detach().numpy()
                 pred_no_npy = torch.nn.functional.softmax(out, dim=1).argmax(dim=1).cpu().detach()
                 # pred_right = torch.nn.functional.softmax(out_r, dim=1).argmax(dim=1).cpu().detach().numpy()
-            tgt = tgt.cpu().detach()
-            # ndcg_list_at_10.append(normalized_dcg(pred_no_npy,tgt,ats=[10]).numpy())
-            ndcg_list_at_5.append(normalized_dcg(pred_no_npy,tgt,ats=[5]).numpy())
-            ndcg_list_at_3.append(normalized_dcg(pred_no_npy,tgt,ats=[3]).numpy())
-            ndcg_list_at_1.append(normalized_dcg(pred_no_npy,tgt,ats=[2]).numpy())
-            map_list.append(average_precision(pred))
-            map_list_at_1.append(average_precision(pred))
+            tgt_no_npy = tgt.cpu().detach()
+            tgt2 = tgt.cpu().detach().numpy()
+            ndcg_list_at_5.append(normalized_dcg(pred_no_npy,tgt_no_npy,ats=[5]).numpy())
+            ndcg_list_at_3.append(normalized_dcg(pred_no_npy,tgt_no_npy,ats=[3]).numpy())
+            ndcg_list_at_1.append(normalized_dcg(pred_no_npy,tgt_no_npy,ats=[1]).numpy())
+            map_list.append(accuracy_score(tgt2,pred_no_npy.numpy()))
+            map_list_at_1.append(accuracy_score(tgt2,pred_no_npy.numpy()))
             # hit_list_at_10.append(precision_at_k(pred,10))
-            hit_list_at_5.append(precision_at_k(pred,5))
-            hit_list_at_3.append(precision_at_k(pred,3))
-            hit_list_at_1.append(precision_at_k(pred,1))
+            hit_list_at_5.append(getHitRatioAtK(pred,tgt.unsqueeze(1).cpu().detach().numpy(),5))
+            hit_list_at_3.append(getHitRatioAtK(pred,tgt.unsqueeze(1).cpu().detach().numpy(),3))
+            hit_list_at_1.append(getHitRatioAtK(pred,tgt.unsqueeze(1).cpu().detach().numpy(),1))
 
         metrics = {"loss": np.nanmean(losses)}
         if args.task_type == "multilabel":
@@ -168,8 +168,9 @@ def model_eval(i_epoch, data, model, args,loss_obj, store_preds=False):
 
 def model_forward(i_epoch, model, args,loss_obj, batch):
     txt_left, segment_left, mask_left, img_left,txt_right, segment_right, mask_right, img_right,neg_txt_right, neg_segment_right, neg_mask_right, neg_img_right, tgt = batch
-    freeze_img = i_epoch < args.freeze_img
-    freeze_txt = i_epoch < args.freeze_txt
+    if args.freeze_img is True and args.freeze_txt is True:
+        raise ValueError("Invalid input, cannot freeze image and text simultaneously.")
+
 
     if args.model == "bow":
         txt = txt.cuda()
@@ -188,11 +189,10 @@ def model_forward(i_epoch, model, args,loss_obj, batch):
         mask, segment = mask.cuda(), segment.cuda()
         out = model(txt, mask, segment, img)
     else:
-        assert args.model == "mmbt" or args.model == "mmbt_cpu"
         for param in model.enc.img_encoder.parameters():
-            param.requires_grad = not freeze_img
+            param.requires_grad = not args.freeze_img
         for param in model.enc.encoder.parameters():
-            param.requires_grad = not freeze_txt
+            param.requires_grad = not args.freeze_txt
 
         txt_left, img_left = txt_left.cuda(), img_left.cuda()
         txt_right, img_right = txt_right.cuda(), img_right.cuda()
@@ -367,7 +367,7 @@ def train_phase_multi(args, settings_dict):
     logger.info("Test...")
     load_checkpoint(model, os.path.join(args.savedir, "model_best.pt"))
     test_metrics = model_eval(np.inf, test_loaders,model,args,loss_obj, store_preds=True)
-    save_metrics(test_metrics,"snopes_loss_approxndcg_test.txt")
+    save_metrics(test_metrics,"snopes_test_no_text.txt")
     log_metrics(f"Test - ", test_metrics, args, logger)
 
 

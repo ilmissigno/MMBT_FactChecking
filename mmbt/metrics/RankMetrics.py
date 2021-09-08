@@ -178,11 +178,30 @@ def compute_precision_recall(rankedList, k):
     recall = float(num_hit) / (np.sum(rankedList) + 1e-10)
     return precision, recall
 
-def getHitRatioForList(ranklist, gtItems):
+def getHitRatioForList(ranklist, gtItems, k):
     for item in ranklist:
         if item in gtItems:
             return 1.0
     return 0.0
+
+def getHitRatioAtK(y_pred, y_true, k):
+    k = k if k <= y_pred.shape[0] else y_pred.shape[0]
+    hits = 0.0
+
+    max_true_id = np.max(y_true[:, 0])
+    min_true_id = np.min(y_true[:, 0])
+
+    for i in range(k):
+        if y_pred[i, 0] > max_true_id:
+            continue
+        if y_pred[i, 0] < min_true_id:
+            continue
+        for j in range(y_true.shape[0]):
+            if y_pred[i, 0] == y_true[j, 0]:
+                hits += 1.0
+                break
+
+    return hits
 
 def average_precision(r):
     """Score is average precision (area under PR curve)

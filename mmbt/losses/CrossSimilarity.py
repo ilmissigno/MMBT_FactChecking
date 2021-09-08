@@ -10,12 +10,15 @@ class CrossSimilarity(torch.nn.Module):
     def __init__(self):
         super(CrossSimilarity, self).__init__()
         self.ce = nn.CrossEntropyLoss()
+        self.cos = nn.CosineSimilarity(dim=1,eps=1e-6)
         self.triplet = nn.TripletMarginLoss(margin=1.0, p=2)
         
     def similarities(self,out_l,out_r):
-        out_l = out_l / torch.norm(out_l,dim=1,keepdim=True)
-        out_r = out_r / torch.norm(out_r,p=2,dim=1,keepdim=True)
-        return torch.matmul(out_l,out_r.t())
+        # out_l = out_l / torch.norm(out_l,dim=1,keepdim=True)
+        # out_r = out_r / torch.norm(out_r,p=2,dim=1,keepdim=True)
+        # return torch.matmul(out_l,out_r.t())
+        # print(self.cos(out_l,out_r).unsqueeze(1).shape)
+        return self.cos(out_l,out_r).unsqueeze(1)
     
     def bce(self,y_pred, y_true, padded_value_indicator=PADDED_Y_VALUE):
         """
@@ -44,11 +47,13 @@ class CrossSimilarity(torch.nn.Module):
         
     
     def forward(self, output_l,output_r, target, output_neg_r):
-        res_1 = self.similarities(output_l,output_r)
-        res_2 = self.similarities(output_l,output_neg_r)
-        res = torch.flatten(res_1, start_dim=1)
-        target = target.expand(res.size()[0],res.size()[0])
-        neg_res = torch.flatten(res_2, start_dim=1)
+        res = self.similarities(output_l,output_r)
+        # res_2 = self.similarities(output_l,output_neg_r)
+        # res = torch.flatten(res_1, start_dim=1)
+        # target = target.expand(res.size()[0],res.size()[0])
+        target = target.unsqueeze(1)
+        # neg_res = torch.flatten(res_2, start_dim=1)
+        # return res,self.bce(res,target)
         return res,approxNDCG.approxNDCGLoss(res,target)
         # return res,self.triplet(output_l,output_r,output_neg_r)
     

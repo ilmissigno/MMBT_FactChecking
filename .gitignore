@@ -3,6 +3,7 @@ fb/
 datasets/*
 *.jpg
 *.tsv
+*.txt
 *.pyc
 addestramenti/
 features/
