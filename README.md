@@ -14,8 +14,7 @@ The following paths need to be set to start training.
 Example command:
 
 ```
-cd mmbt
-python mmbt/train.py -c ./configurazione.conf
+python main.py -c ./configurazione.conf
 ```  
 
 ### File da consultare

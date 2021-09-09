@@ -13,8 +13,11 @@ from transformers import AutoModel
 
 from mmbt.models.image import ImageEncoder
 
-
+#! Class that implements MMBT Model
 class ImageBertEmbeddings(nn.Module):
+    """[ImageBertEmbeddings : Class that implements 
+    Image Embeddings, this class convert image features in embeddings.]
+    """
     def __init__(self, args, embeddings):
         super(ImageBertEmbeddings, self).__init__()
         self.args = args
@@ -52,6 +55,12 @@ class ImageBertEmbeddings(nn.Module):
         return embeddings
 
 class MultimodalBertEncoder(nn.Module):
+    """
+    [MultimodalBertEncoder : This Class implements the MMBT Model, that consists of
+    Text Embeddings extracted from BERT, Image Features as input of Image Embedding Layer.
+    The outputs of Text embeddings and Image embeddings are concatenated and encoded in a Bert Encoder
+    and pooled in a Bert Pooler layer.]
+    """
     def __init__(self, args):
         super(MultimodalBertEncoder, self).__init__()
         self.args = args
@@ -72,9 +81,30 @@ class MultimodalBertEncoder(nn.Module):
         self.img_encoder = ImageEncoder(args)
         self.encoder = bert.encoder
         self.pooler = bert.pooler
-        #self.clf = nn.Linear(args.hidden_sz, args.n_classes)
-
+    
     def forward(self, input_txt_left,input_txt_right, attention_mask_left, attention_mask_right,segment_left,segment_right, input_img_left,input_img_right,neg_txt_right,neg_mask_right,neg_segment_right,neg_img_right):
+        """[forward method: This is extended for Query, Doc and Negative Doc.
+        The batch encoded as Query,Doc and Negative Doc is processed 
+        simultaneously in the model, the same process is applied to each inputs.
+        The pooled layer is applied to each encoded output (query, doc and negative doc).]
+
+        Args:
+            input_txt_left ([torch.Tensor]): [Text embeddings for Query]
+            input_txt_right ([torch.Tensor]): [Text embeddings for Doc]
+            attention_mask_left ([torch.Tensor]): [Attention Mask for Query]
+            attention_mask_right ([torch.Tensor]): [Attention Mask for Doc]
+            segment_left ([torch.Tensor]): [Embedding index for Query]
+            segment_right ([torch.Tensor]): [Embedding index for Doc]
+            input_img_left ([torch.Tensor]): [Image features for Query]
+            input_img_right ([torch.Tensor]): [Image features for Doc]
+            neg_txt_right ([torch.Tensor]): [Text embeddings for Negative Doc]
+            neg_mask_right ([torch.Tensor]): [Attention Mask for Negative Doc]
+            neg_segment_right ([torch.Tensor]): [Embedding index for Negative Doc]
+            neg_img_right ([torch.Tensor]): [Image Features for Negative Doc]
+
+        Returns:
+            The pooled features of Query, Doc and Negative Doc
+        """
         bsz_left = input_txt_left.size(0)
         bsz_right = input_txt_right.size(0)
         neg_bsz_right = neg_txt_right.size(0)
@@ -157,17 +187,19 @@ class MultimodalBertEncoder(nn.Module):
         return self.pooler(encoded_layers_left[-1]),self.pooler(encoded_layers_right[-1]),self.pooler(neg_encoded_layers_right[-1])
 
 class MultimodalBertClf(nn.Module):
+    """[MMBT Classifier : This applies model to each dataloader batches]
+    """
     def __init__(self, args):
         super(MultimodalBertClf, self).__init__()
         self.args = args
         self.enc = MultimodalBertEncoder(args)
-        # self.sim = nn.CosineSimilarity(dim=-1)
-        # self.clf = nn.Linear(args.hidden_sz, args.n_classes)
 
     def forward(self, txt_left,txt_right, mask_left,mask_right, segment_left,segment_right, img_left,img_right,neg_txt_right,neg_mask_right,neg_segment_right,neg_img_right):
-        x,y,neg_y = self.enc(txt_left,txt_right, mask_left,mask_right, segment_left,segment_right, img_left,img_right,neg_txt_right,neg_mask_right,neg_segment_right,neg_img_right)
-        # xx = x.unsqueeze(1)
-        # yy = y.unsqueeze(1)
-        # z = self.sim(xx, yy)
+        x,y,neg_y = self.enc(txt_left,txt_right, 
+                             mask_left,mask_right, 
+                             segment_left,segment_right, 
+                             img_left,img_right,
+                             neg_txt_right,neg_mask_right,
+                             neg_segment_right,neg_img_right)
         return x,y,neg_y
 

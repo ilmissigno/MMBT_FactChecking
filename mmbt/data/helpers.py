@@ -8,7 +8,6 @@
 #
 
 import functools
-import json
 import pandas as pd
 import os
 from collections import Counter
@@ -18,7 +17,7 @@ import torchvision.transforms as transforms
 from transformers import AutoTokenizer
 from torch.utils.data import DataLoader
 
-from mmbt.data.dataset import JsonlDataset, TsvDataset, TsvDatasetMulti
+from mmbt.data.dataset import TsvDatasetMulti
 from mmbt.data.vocab import Vocab
 
 
@@ -37,6 +36,7 @@ def get_transforms(args):
 
 
 def get_labels_and_frequencies(path):
+    #! Function for get the labels as a List
     label_freqs = Counter()
     df = pd.read_csv(path,sep="\t")
     data_labels = df['Label'].astype(int).tolist()
@@ -50,6 +50,7 @@ def get_labels_and_frequencies(path):
     return list(label_freqs.keys()), label_freqs
 
 
+#? Unused
 def get_glove_words(path):
     word_list = []
     for line in open(path):
@@ -59,6 +60,7 @@ def get_glove_words(path):
 
 
 def get_vocab(args):
+    #! Function for get Tokenizer from Transformers
     vocab = Vocab()
     if args.model in ["bert", "mmbt", "concatbert"]:
         bert_tokenizer = AutoTokenizer.from_pretrained(
@@ -75,6 +77,7 @@ def get_vocab(args):
     return vocab
 
 
+#! Function of collate for create the batch from dataloader
 def collate_fn(batch, args):
     lens_q = [len(row[0]) for row in batch]
     lens_d = [len(row[3]) for row in batch]
@@ -128,152 +131,7 @@ def collate_fn(batch, args):
         mask_tensor_neg_d[i_batch, :length_neg_d] = 1
     return text_tensor_q, segment_tensor_q, mask_tensor_q, img_tensor_q, text_tensor_d, segment_tensor_d, mask_tensor_d, img_tensor_d, text_tensor_neg_d, segment_tensor_neg_d, mask_tensor_neg_d, img_tensor_neg_d, tgt_tensor
 
-
-def get_data_loaders(args):
-    tokenizer = (
-        AutoTokenizer.from_pretrained(args.bert_model, do_lower_case=True).tokenize
-        if args.model in ["bert", "mmbt", "concatbert"]
-        else str.split
-    )
-
-    transforms = get_transforms(args)
-    
-    if args.data_type.startswith('tsv'):
-        args.labels, args.label_freqs = get_labels_and_frequencies(
-            os.path.join(args.data_path, args.task, "annotations/train.tsv")
-        )
-        vocab = get_vocab(args)
-        args.vocab = vocab
-        args.vocab_sz = vocab.vocab_sz
-        args.n_classes = len(args.labels)
-
-        train = TsvDataset(
-            os.path.join(args.data_path, args.task, "annotations/train.tsv"),
-            tokenizer,
-            transforms,
-            vocab,
-            args,
-        )
-
-        dev = TsvDataset(
-            os.path.join(args.data_path, args.task, "annotations/val.tsv"),
-            tokenizer,
-            transforms,
-            vocab,
-            args,
-        )
-        test_set = TsvDataset(
-            os.path.join(args.data_path, args.task, "annotations/test.tsv"),
-            tokenizer,
-            transforms,
-            vocab,
-            args,
-        )
-    else:
-        args.labels, args.label_freqs = get_labels_and_frequencies(
-            os.path.join(args.data_path, args.task, "train.jsonl")
-        )
-        vocab = get_vocab(args)
-        args.vocab = vocab
-        args.vocab_sz = vocab.vocab_sz
-        args.n_classes = len(args.labels)
-
-        train = JsonlDataset(
-            os.path.join(args.data_path, args.task, "train.jsonl"),
-            tokenizer,
-            transforms,
-            vocab,
-            args,
-        )
-
-        dev = JsonlDataset(
-            os.path.join(args.data_path, args.task, "dev.jsonl"),
-            tokenizer,
-            transforms,
-            vocab,
-            args,
-        )
-        test_set = JsonlDataset(
-            os.path.join(args.data_path, args.task, "test.jsonl"),
-            tokenizer,
-            transforms,
-            vocab,
-            args,
-        )
-    
-    args.train_data_len = len(train)
-
-
-    collate = functools.partial(collate_fn, args=args)
-
-    train_loader = DataLoader(
-        train,
-        batch_size=args.batch_sz,
-        shuffle=True,
-        num_workers=args.n_workers,
-        collate_fn=collate,
-    )
-
-    val_loader = DataLoader(
-        dev,
-        batch_size=args.batch_sz,
-        shuffle=False,
-        num_workers=args.n_workers,
-        collate_fn=collate,
-    )
-
-
-    test_loader = DataLoader(
-        test_set,
-        batch_size=args.batch_sz,
-        shuffle=False,
-        num_workers=args.n_workers,
-        collate_fn=collate,
-    )
-
-    # if args.task == "vsnli":
-    #     test_hard = JsonlDataset(
-    #         os.path.join(args.data_path, args.task, "test_hard.jsonl"),
-    #         tokenizer,
-    #         transforms,
-    #         vocab,
-    #         args,
-    #     )
-
-    #     test_hard_loader = DataLoader(
-    #         test_hard,
-    #         batch_size=args.batch_sz,
-    #         shuffle=False,
-    #         num_workers=args.n_workers,
-    #         collate_fn=collate,
-    #     )
-
-    #     test = {"test": test_loader, "test_hard": test_hard_loader}
-
-    # else:
-    #     test_gt = JsonlDataset(
-    #         os.path.join(args.data_path, args.task, "test_hard_gt.jsonl"),
-    #         tokenizer,
-    #         transforms,
-    #         vocab,
-    #         args,
-    #     )
-
-    #     test_gt_loader = DataLoader(
-    #         test_gt,
-    #         batch_size=args.batch_sz,
-    #         shuffle=False,
-    #         num_workers=args.n_workers,
-    #         collate_fn=collate,
-    #     )
-
-    test = {
-        "test": test_loader,
-    }
-
-    return train_loader, val_loader, test
-
-
+#! Load dataloader from dataset class
 def get_data_loaders_left_right(args):
     tokenizer = (
         AutoTokenizer.from_pretrained(args.bert_model, do_lower_case=True).tokenize
@@ -319,7 +177,6 @@ def get_data_loaders_left_right(args):
     )
     
     args.train_data_len = len(train)
-
 
     collate = functools.partial(collate_fn, args=args)
 

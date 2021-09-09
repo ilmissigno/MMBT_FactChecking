@@ -19,168 +19,25 @@ from random import randint
 import torch
 from torch.utils.data import Dataset
 
-from mmbt.utils.utils import truncate_seq_pair, numpy_seed
-
-
-class JsonlDataset(Dataset):
-    def __init__(self, data_path, tokenizer, transforms, vocab, args):
-        self.data = [json.loads(l) for l in open(data_path)]
-        self.data_dir = os.path.dirname(data_path)
-        self.tokenizer = tokenizer
-        self.args = args
-        self.vocab = vocab
-        self.n_classes = len(args.labels)
-        self.text_start_token = ["[CLS]"] if args.model != "mmbt" else ["[SEP]"]
-
-        with numpy_seed(0):
-            for row in self.data:
-                if np.random.random() < args.drop_img_percent:
-                    row["img"] = None
-
-        self.max_seq_len = args.max_seq_len
-        if args.model == "mmbt":
-            self.max_seq_len -= args.num_image_embeds
-
-        self.transforms = transforms
-
-    def __len__(self):
-        return len(self.data)
-
-    def __getitem__(self, index):
-        if self.args.task == "vsnli":
-            sent1 = self.tokenizer(self.data[index]["sentence1"])
-            sent2 = self.tokenizer(self.data[index]["sentence2"])
-            truncate_seq_pair(sent1, sent2, self.args.max_seq_len - 3)
-            sentence = self.text_start_token + sent1 + ["[SEP]"] + sent2 + ["[SEP]"]
-            segment = torch.cat(
-                [torch.zeros(2 + len(sent1)), torch.ones(len(sent2) + 1)]
-            )
-        else:
-            sentence = (
-                self.text_start_token
-                + self.tokenizer(self.data[index]["text"])[
-                    : (self.args.max_seq_len - 1)
-                ]
-            )
-            segment = torch.zeros(len(sentence))
-
-        sentence = torch.LongTensor(
-            [
-                self.vocab.stoi[w] if w in self.vocab.stoi else self.vocab.stoi["[UNK]"]
-                for w in sentence
-            ]
-        )
-
-        if self.args.task_type == "multilabel":
-            label = torch.zeros(self.n_classes)
-            label[
-                [self.args.labels.index(tgt) for tgt in self.data[index]["label"]]
-            ] = 1
-        else:
-            label = torch.LongTensor(
-                [self.args.labels.index(self.data[index]["label"])]
-            )
-
-        image = None
-        if self.args.model in ["img", "concatbow", "concatbert", "mmbt"]:
-            if self.data[index]["img"]:
-                image = Image.open(
-                    os.path.join(self.data_dir, self.data[index]["img"])
-                ).convert("RGB")
-            else:
-                image = Image.fromarray(128 * np.ones((256, 256, 3), dtype=np.uint8))
-            image = self.transforms(image)
-
-        if self.args.model == "mmbt":
-            # The first SEP is part of Image Token.
-            segment = segment[1:]
-            sentence = sentence[1:]
-            # The first segment (0) is of images.
-            segment += 1
-
-        return sentence, segment, image, label
-
-class TsvDataset(Dataset):
-    def __init__(self, data_path, tokenizer, transforms, vocab, args):
-        self.data = pd.read_csv(data_path,sep="\t")
-        self.data_dir = os.path.dirname(data_path)
-        self.tokenizer = tokenizer
-        self.args = args
-        self.vocab = vocab
-        self.n_classes = len(args.labels)
-        self.text_start_token = ["[CLS]"] if args.model != "mmbt" else ["[SEP]"]
-
-        with numpy_seed(0):
-            for row in self.data:
-                if np.random.random() < args.drop_img_percent:
-                    row["img"] = None
-
-        self.max_seq_len = args.max_seq_len
-        if args.model == "mmbt":
-            self.max_seq_len -= args.num_image_embeds
-
-        self.transforms = transforms
-
-    def __len__(self):
-        return len(self.data)
-
-    def __getitem__(self, index):
-        if self.args.task == "vsnli":
-            sent1 = self.tokenizer(self.data[index]["sentence1"])
-            sent2 = self.tokenizer(self.data[index]["sentence2"])
-            truncate_seq_pair(sent1, sent2, self.args.max_seq_len - 3)
-            sentence = self.text_start_token + sent1 + ["[SEP]"] + sent2 + ["[SEP]"]
-            segment = torch.cat(
-                [torch.zeros(2 + len(sent1)), torch.ones(len(sent2) + 1)]
-            )
-        else:
-            sentence = (
-                self.text_start_token
-                + self.tokenizer(self.data.loc[index,"text"])[
-                    : (self.args.max_seq_len - 1)
-                ]
-            )
-            segment = torch.zeros(len(sentence))
-
-        sentence = torch.LongTensor(
-            [
-                self.vocab.stoi[w] if w in self.vocab.stoi else self.vocab.stoi["[UNK]"]
-                for w in sentence
-            ]
-        )
-
-        if self.args.task_type == "multilabel":
-            label = torch.zeros(self.n_classes)
-            label[
-                [self.args.labels.index(tgt) for tgt in self.data.loc[index,"label"]]
-            ] = 1
-        else:
-            label = torch.LongTensor(
-                [self.args.labels.index(self.data.loc[index,"label"])]
-            )
-
-        image = None
-        if self.args.model in ["img", "concatbow", "concatbert", "mmbt"]:
-            if self.data.loc[index,"id"]:
-                img_name = self.args.data_path+'/'+self.args.task+'/images/'+str(self.data.loc[index,'id'])+".jpg"
-                image = Image.open(
-                    img_name
-                ).convert("RGB")
-            else:
-                image = Image.fromarray(128 * np.ones((256, 256, 3), dtype=np.uint8))
-            image = self.transforms(image)
-
-        if self.args.model == "mmbt":
-            # The first SEP is part of Image Token.
-            segment = segment[1:]
-            sentence = sentence[1:]
-            # The first segment (0) is of images.
-            segment += 1
-
-        return sentence, segment, image, label
+from mmbt.utils.utils import numpy_seed
 
 class TsvDatasetMulti(Dataset):
+    """ TSV Dataset Loading class
+        This class help for loading a dataset from a tsv file.
+    Args:
+        Dataset : [Pytorch Dataset]
+    """
     def __init__(self, data_path,multi, tokenizer, transforms, vocab, args):
+        """[Constructor]
+
+        Args:
+            data_path ([string]): [Path to TSV Annotation dataset]
+            multi ([string]): [Type of Query or Doc Dataset]
+            tokenizer ([Tokenizer]): [Tokenizer Object]
+            transforms ([Pytorch Transform]): [Pytorch Transform Object for Agumenting]
+            vocab ([string]): [Path to vocab (use for other models)]
+            args ([dict]): [config parameters]
+        """
         self.data = pd.read_csv(data_path,sep="\t")
         self.data_dir = os.path.dirname(data_path)
         self.tokenizer = tokenizer
@@ -205,6 +62,14 @@ class TsvDatasetMulti(Dataset):
         return len(self.data)
 
     def __getitem__(self, index):
+        """[Get current element in dataloader]
+
+        Args:
+            index ([int]): [Index of current element in dataloader]
+
+        Returns:
+            [current element in dataloader]
+        """
         sentence_q = (
         self.text_start_token
         + self.tokenizer(self.data.loc[index,"QueryText"])[
@@ -226,11 +91,9 @@ class TsvDatasetMulti(Dataset):
             : (self.args.max_seq_len - 1)
         ]
         )
-        
         segment_q = torch.zeros(len(sentence_q))
         segment_d = torch.zeros(len(sentence_d))
         neg_segment_d = torch.zeros(len(neg_sentence_d))
-
         sentence_q = torch.LongTensor(
             [
                 self.vocab.stoi[w] if w in self.vocab.stoi else self.vocab.stoi["[UNK]"]
@@ -249,12 +112,11 @@ class TsvDatasetMulti(Dataset):
                 for w in neg_sentence_d
             ]
         )
-
-
         label = torch.LongTensor(
             [self.args.labels.index(self.data.loc[index,"Label"])]
         )
-
+        
+        #! Image Loading, search by ID in folder (query and document)
         image_q = None
         if self.args.model in ["img", "concatbow", "concatbert", "mmbt"]:
             if self.data.loc[index,"QueryID"]:

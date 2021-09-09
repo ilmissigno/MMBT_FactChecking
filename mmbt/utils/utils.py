@@ -16,6 +16,7 @@ import csv
 
 import torch
 
+#! Utils class
 
 def set_seed(seed):
     random.seed(seed)

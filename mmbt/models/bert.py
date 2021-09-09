@@ -13,6 +13,9 @@ from transformers import AutoModel
 
 
 class BertEncoder(nn.Module):
+    """
+    [Bert Encoder Class: Provides the BERT Model]
+    """
     def __init__(self, args):
         super(BertEncoder, self).__init__()
         self.args = args
@@ -29,6 +32,8 @@ class BertEncoder(nn.Module):
 
 
 class BertClf(nn.Module):
+    """[BertClf Class : Add Dense Layer for Classification to the BERT Model]
+    """
     def __init__(self, args):
         super(BertClf, self).__init__()
         self.args = args

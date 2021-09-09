@@ -12,6 +12,7 @@ import time
 from datetime import timedelta
 
 
+#! Log Formatter Class
 class LogFormatter:
     def __init__(self):
         self.start_time = time.time()

@@ -3,9 +3,21 @@ import torch.nn as nn
 from torch.nn import BCEWithLogitsLoss
 from allrank.allrank.models.losses import approxNDCG
 
-PADDED_Y_VALUE = -1
+PADDED_Y_VALUE = -1 #Costant padding value for ApproxNDCG
 
 class CrossSimilarity(torch.nn.Module):
+    """Cross Similarity class, is a class for calculate losses 
+    and similarity between the outputs of the model.
+    
+    Functions:
+        similarities : function for calculate the cosine similarity
+            :return: cosine similarity tensor
+        forward: a function inherit by torch.nn.Module
+            :return: the output of similarity and the loss 
+                calculated between similarity tensor and the target
+    Args:
+        torch (torch.nn.Module): [description]
+    """
     
     def __init__(self):
         super(CrossSimilarity, self).__init__()
@@ -14,46 +26,23 @@ class CrossSimilarity(torch.nn.Module):
         self.triplet = nn.TripletMarginLoss(margin=1.0, p=2)
         
     def similarities(self,out_l,out_r):
-        # out_l = out_l / torch.norm(out_l,dim=1,keepdim=True)
-        # out_r = out_r / torch.norm(out_r,p=2,dim=1,keepdim=True)
-        # return torch.matmul(out_l,out_r.t())
-        # print(self.cos(out_l,out_r).unsqueeze(1).shape)
+        """[Cosine similarity between query and document from the single batch]
+
+        Args:
+            out_l ([torch.Tensor]): [Query tensor]
+            out_r ([torch.Tensor]): [Doc tensor]
+
+        Returns:
+            [torch.Tensor]: [Cosine similarity Tensor between Query and Doc Tensors]
+        """
+        #! Cosine similarity between query and document from the single batch
         return self.cos(out_l,out_r).unsqueeze(1)
-    
-    def bce(self,y_pred, y_true, padded_value_indicator=PADDED_Y_VALUE):
-        """
-        Binary Cross-Entropy loss.
-        :param y_pred: predictions from the model, shape [batch_size, slate_length]
-        :param y_true: ground truth labels, shape [batch_size, slate_length]
-        :param padded_value_indicator: an indicator of the y_true index containing a padded item, e.g. -1
-        :return: loss value, a torch.Tensor
-        """
-        device = torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")
-        y_pred = y_pred.float()
-        y_true = y_true.float()
-
-        mask = y_true == padded_value_indicator
-        valid_mask = y_true != padded_value_indicator
-
-        ls = BCEWithLogitsLoss(reduction='none')(y_pred, y_true)
-        ls[mask] = 0.0
-
-        document_loss = torch.sum(ls, dim=-1)
-        sum_valid = torch.sum(valid_mask, dim=-1).type(torch.float32) > torch.tensor(0.0, dtype=torch.float32, device=device)
-
-        loss_output = torch.sum(document_loss) / torch.sum(sum_valid)
-
-        return loss_output.mean()
         
-    
     def forward(self, output_l,output_r, target, output_neg_r):
         res = self.similarities(output_l,output_r)
-        # res_2 = self.similarities(output_l,output_neg_r)
-        # res = torch.flatten(res_1, start_dim=1)
-        # target = target.expand(res.size()[0],res.size()[0])
         target = target.unsqueeze(1)
-        # neg_res = torch.flatten(res_2, start_dim=1)
-        # return res,self.bce(res,target)
+        #! If using approxndcg loss
         return res,approxNDCG.approxNDCGLoss(res,target)
+        #! If using triplet hinge loss
         # return res,self.triplet(output_l,output_r,output_neg_r)
     

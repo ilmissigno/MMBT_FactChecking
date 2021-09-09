@@ -13,6 +13,8 @@ import torchvision
 
 
 class ImageEncoder(nn.Module):
+    """[Image Encoder Class : Provide the Image Model such as ResNet50]
+    """
     def __init__(self, args):
         super(ImageEncoder, self).__init__()
         self.args = args
@@ -49,6 +51,8 @@ class ImageEncoder(nn.Module):
 
 
 class ImageClf(nn.Module):
+    """[ImageClf : Add the classifier to the image model]
+    """
     def __init__(self, args):
         super(ImageClf, self).__init__()
         self.args = args
