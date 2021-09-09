@@ -24,3 +24,6 @@ python main.py -c ./configurazione.conf
 - **mmbt/metrics/RankMetrics.py**: Implementazione delle metriche di Ranking per il modello
 - **mmbt/data** : Files per il loading del dataset
 - **mmbt/models/mmbt.py** : Modello MMBT
+
+### Class Diagram
+![Alt text](CLASS_DIAGRAM.png?raw=true "Class Diagram")
