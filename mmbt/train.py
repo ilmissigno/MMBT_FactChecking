@@ -13,6 +13,7 @@ import torch
 import torch.nn as nn
 import sys
 import gc
+import time
 from random import randint
 sys.path.append("")
 from mmbt.data.helpers import get_data_loaders_left_right, get_data_loaders_doc_extraction
@@ -155,19 +156,21 @@ class Trainer():
         questo per validation e test
         """
         actual_epoch = 0
+        train_cnter = 0
         model.train()
         for i_epoch in range(start_epoch,args.max_epochs):
             logger.warning("*"*50+" EPOCH "+str(i_epoch)+" "+"*"*50)
             optimizer1.zero_grad()
-            model.zero_grad()
             iter_doc = iter(train_doc_loader)
             for batch_d in tqdm(iter_doc, total=len(train_doc_loader)):
                 with torch.cuda.amp.autocast():
                     out_d,tgt = model_forward_feat(model, args, batch_d)
                 optimizer1.step()
-                optimizer1.zero_grad()
                 torch.cuda.empty_cache()
-                gc.collect()   
+                gc.collect()
+                train_cnter+=1
+                if train_cnter == 200:
+                    break
             actual_epoch = i_epoch
         logger.info("*"*50+" Saving model to checkpoint for epoch : "+str(actual_epoch)+" "+"*"*50)
         save_checkpoint(
@@ -189,32 +192,28 @@ class Trainer():
         train_losses = []
         val_total_similarities = []
         val_counterz = 0
-        iter_doc = iter(val_doc_loader)
-        for batch_d in tqdm(iter_doc, total=len(val_doc_loader)):
+        iter_query = iter(val_query_loader)
+        for batch_q in tqdm(iter_query, total=len(val_query_loader)):
             val_similarities_res = []
-            q_counterz = 0
-            iter_query = iter(val_query_loader)
-            for batch_q in tqdm(iter_query, total=len(val_query_loader)):
+            d_counterz = 0
+            iter_doc = iter(val_doc_loader)
+            for batch_d in tqdm(iter_doc, total=len(val_doc_loader)):
                 with torch.cuda.amp.autocast():
                     out_d,tgt = model_forward_feat(model, args, batch_d)
                     out_q,_ = model_forward_feat(model, args, batch_q)
-                score,res,loss = loss_obj(out_d,out_q,tgt)
-                if args.gradient_accumulation_steps > 1:
-                    loss = loss / args.gradient_accumulation_steps
-                train_losses.append(loss.item())
-                loss.backward()
+                score = loss_obj(out_d,out_q,tgt)
                 optimizer1.step()
                 optimizer1.zero_grad()
                 val_similarities_res.append(score.cpu().detach().numpy())
                 torch.cuda.empty_cache()
                 gc.collect()
-                q_counterz+=1
-                if q_counterz == 100:
+                d_counterz+=1
+                if d_counterz == 50:
                     break
             #? Similarità qui tra singolo doc e query valutate (media?)
             val_total_similarities.append(np.nanmean(val_similarities_res))
             val_counterz+=1
-            if val_counterz == 5:
+            if val_counterz == 50:
                 break
         logger.info("VALIDATION : Total similarity per DOCUMENT : ")
         print(val_total_similarities)
@@ -225,34 +224,36 @@ class Trainer():
         model.eval()
         train_losses = []
         test_total_similarities = []
+        times_total = {}
         test_counterz = 0
-        iter_doc = iter(test_doc_loaders)
-        for batch_d in tqdm(iter_doc, total=len(test_doc_loaders)):
-            test_similarities_res = []
-            q_counterz = 0
+        for batch_q in tqdm(iter_query, total=len(test_query_loaders)):
             iter_query = iter(test_query_loaders)
-            for batch_q in tqdm(iter_query, total=len(test_query_loaders)):
+            test_similarities_res = []
+            d_counterz = 0
+            iter_doc = iter(test_doc_loaders)
+            start_time = time.time()
+            for batch_d in tqdm(iter_doc, total=len(test_doc_loaders)):
                 with torch.cuda.amp.autocast():
                     out_d,tgt = model_forward_feat(model, args, batch_d)
                     out_q,_ = model_forward_feat(model, args, batch_q)
-                score,res,loss = loss_obj(out_d,out_q,tgt)
-                if args.gradient_accumulation_steps > 1:
-                    loss = loss / args.gradient_accumulation_steps
-                train_losses.append(loss.item())
-                loss.backward()
+                score = loss_obj(out_d,out_q,tgt)
                 optimizer1.step()
                 optimizer1.zero_grad()
                 test_similarities_res.append(score.cpu().detach().numpy())
                 torch.cuda.empty_cache()
                 gc.collect()
-                q_counterz+=1
-                if q_counterz == 100:
+                d_counterz+=1
+                if d_counterz == 50:
                     break
+            end_time = time.time()
             #? Similarità qui tra singolo doc e query valutate (media?)
             test_total_similarities.append(np.nanmean(test_similarities_res))
+            times_total["query_n_"+str(test_counterz)] = end_time - start_time
             test_counterz+=1
-            if test_counterz == 5:
+            if test_counterz == 50:
                 break
+            
+        write_times_to_csv("times_test_politifact_50query.csv",times_total)
         logger.info("TEST : Total similarity per DOCUMENT : ")
         print(test_total_similarities)
         logger.info("TEST : Total similarity of ALL DOCUMENTS : "+str(np.nanmax(test_total_similarities)))

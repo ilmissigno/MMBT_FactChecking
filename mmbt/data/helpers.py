@@ -62,7 +62,7 @@ def get_glove_words(path):
 def get_vocab(args):
     #! Function for get Tokenizer from Transformers
     vocab = Vocab()
-    if args.model in ["bert", "mmbt", "concatbert"]:
+    if args.model in ["bert", "mmbt","mmbt_feat", "concatbert"]:
         bert_tokenizer = AutoTokenizer.from_pretrained(
             args.bert_model, do_lower_case=True
         )
@@ -95,14 +95,14 @@ def collate_fn(batch, args):
     segment_tensor_neg_d = torch.zeros(bsz, max_seq_neg_len_d).long()
 
     img_tensor_q = None
-    if args.model in ["img", "concatbow", "concatbert", "mmbt"]:
+    if args.model in ["img", "concatbow", "concatbert", "mmbt","mmbt_feat"]:
         img_tensor_q = torch.stack([row[2] for row in batch])
     
     img_tensor_d = None
-    if args.model in ["img", "concatbow", "concatbert", "mmbt"]:
+    if args.model in ["img", "concatbow", "concatbert", "mmbt","mmbt_feat"]:
         img_tensor_d = torch.stack([row[5] for row in batch])
     img_tensor_neg_d = None
-    if args.model in ["img", "concatbow", "concatbert", "mmbt"]:
+    if args.model in ["img", "concatbow", "concatbert", "mmbt","mmbt_feat"]:
         img_tensor_neg_d = torch.stack([row[8] for row in batch])
 
     if args.task_type == "multilabel":
@@ -138,7 +138,7 @@ def collate_fn_2(batch, args):
     text_tensor_q = torch.zeros(bsz, max_seq_len_q).long()
     segment_tensor_q = torch.zeros(bsz, max_seq_len_q).long()
     img_tensor_q = None
-    if args.model in ["img", "concatbow", "concatbert", "mmbt"]:
+    if args.model in ["img", "concatbow", "concatbert", "mmbt","mmbt_feat"]:
         img_tensor_q = torch.stack([row[2] for row in batch])
     if args.task_type == "multilabel":
         # Multilabel case
@@ -159,7 +159,7 @@ def collate_fn_2(batch, args):
 def get_data_loaders_left_right(args):
     tokenizer = (
         AutoTokenizer.from_pretrained(args.bert_model, do_lower_case=True).tokenize
-        if args.model in ["bert", "mmbt", "concatbert"]
+        if args.model in ["bert", "mmbt", "concatbert", "mmbt_feat"]
         else str.split
     )
 
@@ -236,7 +236,7 @@ def get_data_loaders_left_right(args):
 def get_data_loaders_doc_extraction(args):
     tokenizer = (
         AutoTokenizer.from_pretrained(args.bert_model, do_lower_case=True).tokenize
-        if args.model in ["bert", "mmbt", "concatbert"]
+        if args.model in ["bert", "mmbt", "concatbert","mmbt_feat"]
         else str.split
     )
 

@@ -38,12 +38,12 @@ class CrossSimilarity(torch.nn.Module):
         #! Cosine similarity between query and document from the single batch
         return self.cos(out_l,out_r).unsqueeze(1)
         
-    def forward(self, output_l,output_r, target, output_neg_r):
+    def forward(self, output_l,output_r, target):
         res = self.similarities(output_l,output_r)
         target = target.unsqueeze(1)
         score = self.cos(output_l,output_r)
         #! If using approxndcg loss
-        return score,res,approxNDCG.approxNDCGLoss(res,target)
+        return score
         #! If using triplet hinge loss
         # return res,self.triplet(output_l,output_r,output_neg_r)
     

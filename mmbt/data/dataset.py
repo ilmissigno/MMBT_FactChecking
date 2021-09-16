@@ -53,7 +53,7 @@ class TsvDatasetMulti(Dataset):
                     row["img"] = None
 
         self.max_seq_len = args.max_seq_len
-        if args.model == "mmbt":
+        if args.model == "mmbt" or args.model == "mmbt_feat":
             self.max_seq_len -= args.num_image_embeds
 
         self.transforms = transforms
@@ -118,7 +118,7 @@ class TsvDatasetMulti(Dataset):
         
         #! Image Loading, search by ID in folder (query and document)
         image_q = None
-        if self.args.model in ["img", "concatbow", "concatbert", "mmbt"]:
+        if self.args.model in ["img", "concatbow", "concatbert", "mmbt", "mmbt_feat"]:
             if self.data.loc[index,"QueryID"]:
                 img_name_q = self.args.data_path+'/'+self.args.task+'/images/query/'+str(self.data.loc[index,'QueryID'])+".png"
                 try:
@@ -133,7 +133,7 @@ class TsvDatasetMulti(Dataset):
             image_q = self.transforms(image_q)
         
         image_d = None
-        if self.args.model in ["img", "concatbow", "concatbert", "mmbt"]:
+        if self.args.model in ["img", "concatbow", "concatbert", "mmbt", "mmbt_feat"]:
             if self.data.loc[index,"DocID"]:
                 img_name_d = self.args.data_path+'/'+self.args.task+'/images/doc/'+str(self.data.loc[index,'DocID'])+".png"
                 try:
@@ -148,7 +148,7 @@ class TsvDatasetMulti(Dataset):
             image_d = self.transforms(image_d)
         
         neg_img_d = None
-        if self.args.model in ["img", "concatbow", "concatbert", "mmbt"]:
+        if self.args.model in ["img", "concatbow", "concatbert", "mmbt", "mmbt_feat"]:
             if self.data.loc[j_idx,"DocID"]:
                 neg_img_name_d = self.args.data_path+'/'+self.args.task+'/images/doc/'+str(self.data.loc[j_idx,'DocID'])+".png"
                 try:

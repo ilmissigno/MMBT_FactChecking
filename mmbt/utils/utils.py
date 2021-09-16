@@ -40,6 +40,12 @@ def load_checkpoint(model, path):
     model.load_state_dict(best_checkpoint["state_dict"])
 
 
+def write_times_to_csv(csv_file,times):
+    with open(csv_file, "w") as csv_f:
+        writer = csv.writer(csv_f)
+        for key, value in times.items():
+            writer.writerow([key, value])
+
 def truncate_seq_pair(tokens_a, tokens_b, max_length):
     """Truncates a sequence pair in place to the maximum length.
     Copied from https://github.com/huggingface/pytorch-pretrained-BERT

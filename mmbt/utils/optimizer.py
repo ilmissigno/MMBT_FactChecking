@@ -2,7 +2,7 @@ from pytorch_pretrained_bert import BertAdam
 import torch.optim as optim
 
 def get_optimizer(model, args):
-    if args.model in ["bert", "concatbert", "mmbt"]:
+    if args.model in ["bert", "concatbert", "mmbt", "mmbt_feat"]:
         total_steps = (
             args.train_data_len
             / args.batch_sz
