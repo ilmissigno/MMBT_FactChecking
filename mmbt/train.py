@@ -35,7 +35,10 @@ class Trainer():
     """
     def __init__(self):
         args = get_parsed_args()
-        self.train(args)
+        if args.doc_extraction:
+            self.doc_feat_extraction(args)
+        else:
+            self.train(args)
 
     def train(self,args):
         """

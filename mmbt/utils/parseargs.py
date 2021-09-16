@@ -43,3 +43,4 @@ def get_args(parser):
     parser.add("--task_type", type=str, default="multilabel", choices=["multilabel", "classification","extraction"])
     parser.add("--warmup", type=float, default=0.1)
     parser.add("--weight_classes", type=int, default=1)
+    parser.add("--doc_extraction", default=False)
