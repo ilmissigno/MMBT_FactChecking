@@ -29,3 +29,22 @@ def model_forward(model, args,loss_obj, batch):
     tgt = tgt.cuda()
     res,loss = loss_obj(out_l,out_r, tgt, out_neg_r)
     return loss,res,tgt
+
+def model_forward_feat(model, args, batch):
+    #! Feature extraction function
+    txt, segment, mask, img, tgt = batch
+    
+    if args.freeze_img is True and args.freeze_txt is True:
+        raise ValueError("Invalid input, cannot freeze image and text simultaneously.")
+    
+    for param in model.enc.img_encoder.parameters():
+        param.requires_grad = not args.freeze_img
+    for param in model.enc.encoder.parameters():
+        param.requires_grad = not args.freeze_txt
+    
+    txt, img = txt.cuda(), img.cuda()
+    mask, segment = mask.cuda(), segment.cuda()
+    tgt = tgt.cuda()
+    out = model(txt, mask, segment, img)
+    
+    return out, tgt
