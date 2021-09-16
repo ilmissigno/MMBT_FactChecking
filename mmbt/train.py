@@ -15,7 +15,7 @@ import sys
 import gc
 from random import randint
 sys.path.append("")
-from mmbt.data.helpers import get_data_loaders_left_right
+from mmbt.data.helpers import get_data_loaders_left_right, get_data_loaders_query, get_data_loaders_doc
 from mmbt.models import get_model
 from mmbt.utils.logger import create_logger
 from mmbt.utils.utils import *
@@ -129,6 +129,7 @@ class Trainer():
         log_metrics(f"Test - ", test_metrics, args, logger)
     
     def doc_feat_extraction(self,args):
+        loss_obj = CrossSimilarity()
         logger = create_logger("%s/logfile.log" % args.savedir, args)
         seed_val = randint(0, 10000)
         logger.warning("*"*50+" SEED : "+str(seed_val)+" "+"*"*50)
@@ -193,8 +194,8 @@ class Trainer():
             iter_query = iter(val_query_loader)
             for batch_q in tqdm(iter_query, total=len(val_query_loader)):
                 with torch.cuda.amp.autocast():
-                    out_d,tgt = model_forward_feat(i_epoch, model, args, batch_d)
-                    out_q,_ = model_forward_feat(i_epoch, model, args, batch_q)
+                    out_d,tgt = model_forward_feat(model, args, batch_d)
+                    out_q,_ = model_forward_feat(model, args, batch_q)
                 score,res,loss = loss_obj(out_d,out_q,tgt)
                 if args.gradient_accumulation_steps > 1:
                     loss = loss / args.gradient_accumulation_steps
@@ -230,8 +231,8 @@ class Trainer():
             iter_query = iter(test_query_loaders)
             for batch_q in tqdm(iter_query, total=len(test_query_loaders)):
                 with torch.cuda.amp.autocast():
-                    out_d,tgt = model_forward_feat(i_epoch, model, args, batch_d)
-                    out_q,_ = model_forward_feat(i_epoch, model, args, batch_q)
+                    out_d,tgt = model_forward_feat(model, args, batch_d)
+                    out_q,_ = model_forward_feat(model, args, batch_q)
                 score,res,loss = loss_obj(out_d,out_q,tgt)
                 if args.gradient_accumulation_steps > 1:
                     loss = loss / args.gradient_accumulation_steps
