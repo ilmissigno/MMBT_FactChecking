@@ -15,7 +15,7 @@ import sys
 import gc
 from random import randint
 sys.path.append("")
-from mmbt.data.helpers import get_data_loaders_left_right, get_data_loaders_query, get_data_loaders_doc
+from mmbt.data.helpers import get_data_loaders_left_right, get_data_loaders_doc_extraction
 from mmbt.models import get_model
 from mmbt.utils.logger import create_logger
 from mmbt.utils.utils import *
@@ -136,8 +136,7 @@ class Trainer():
         set_seed(seed_val)
         args.savedir = os.path.join(args.savedir, args.name)
         os.makedirs(args.savedir, exist_ok=True)
-        train_query_loader, val_query_loader, test_query_loaders = get_data_loaders_query(args)
-        train_doc_loader, val_doc_loader, test_doc_loaders = get_data_loaders_doc(args)
+        train_query_loader,train_doc_loader,val_query_loader,val_doc_loader,test_query_loaders,test_doc_loaders = get_data_loaders_doc_extraction(args)
         model = get_model(args)
         optimizer1 = get_optimizer(model, args)
         scheduler1 = get_scheduler(optimizer1, args)
