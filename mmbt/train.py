@@ -156,9 +156,9 @@ class Trainer():
         questo per validation e test
         """
         actual_epoch = 0
-        train_cnter = 0
         model.train()
         for i_epoch in range(start_epoch,args.max_epochs):
+            train_cnter = 0
             logger.warning("*"*50+" EPOCH "+str(i_epoch)+" "+"*"*50)
             optimizer1.zero_grad()
             iter_doc = iter(train_doc_loader)

@@ -70,112 +70,188 @@ class TsvDatasetMulti(Dataset):
         Returns:
             [current element in dataloader]
         """
-        sentence_q = (
-        self.text_start_token
-        + self.tokenizer(self.data.loc[index,"QueryText"])[
-            : (self.args.max_seq_len - 1)
-        ]
-        )
-        sentence_d = (
-        self.text_start_token
-        + self.tokenizer(self.data.loc[index,"DocText"])[
-            : (self.args.max_seq_len - 1)
-        ]
-        )
-        
-        #negative random document
-        j_idx = randint(0,len(self.data)-1)
-        neg_sentence_d = (
-        self.text_start_token
-        + self.tokenizer(self.data.loc[j_idx,"DocText"])[
-            : (self.args.max_seq_len - 1)
-        ]
-        )
-        segment_q = torch.zeros(len(sentence_q))
-        segment_d = torch.zeros(len(sentence_d))
-        neg_segment_d = torch.zeros(len(neg_sentence_d))
-        sentence_q = torch.LongTensor(
-            [
-                self.vocab.stoi[w] if w in self.vocab.stoi else self.vocab.stoi["[UNK]"]
-                for w in sentence_q
-            ]
-        )
-        sentence_d = torch.LongTensor(
-            [
-                self.vocab.stoi[w] if w in self.vocab.stoi else self.vocab.stoi["[UNK]"]
-                for w in sentence_d
-            ]
-        )
-        neg_sentence_d = torch.LongTensor(
-            [
-                self.vocab.stoi[w] if w in self.vocab.stoi else self.vocab.stoi["[UNK]"]
-                for w in neg_sentence_d
-            ]
-        )
-        label = torch.LongTensor(
-            [self.args.labels.index(self.data.loc[index,"Label"])]
-        )
-        
-        #! Image Loading, search by ID in folder (query and document)
-        image_q = None
-        if self.args.model in ["img", "concatbow", "concatbert", "mmbt", "mmbt_feat"]:
-            if self.data.loc[index,"QueryID"]:
-                img_name_q = self.args.data_path+'/'+self.args.task+'/images/query/'+str(self.data.loc[index,'QueryID'])+".png"
-                try:
-                    image_q = Image.open(
-                        img_name_q
-                    ).convert("RGB")
-                except PIL.UnidentifiedImageError:
-                    image_q = cv2.imread(img_name_q)
-                    image_q = cv2.cvtColor(image_q,cv2.COLOR_BGR2RGB)
+        if self.args.doc_extraction:
+            #doc extraction
+            if self.multi == 'query':
+                #queries
+                sentence = (
+                self.text_start_token
+                + self.tokenizer(self.data.loc[index,"QueryText"])[
+                    : (self.args.max_seq_len - 1)
+                ]
+                )
+                segment = torch.zeros(len(sentence))
+                sentence = torch.LongTensor(
+                [
+                    self.vocab.stoi[w] if w in self.vocab.stoi else self.vocab.stoi["[UNK]"]
+                    for w in sentence
+                ]
+                )
+                label = torch.LongTensor(
+                    [self.args.labels.index(self.data.loc[index,"Label"])]
+                )
+                #! Image Loading, search by ID in folder (query and document)
+                image = None
+                if self.args.model in ["img", "concatbow", "concatbert", "mmbt", "mmbt_feat"]:
+                    if self.data.loc[index,"QueryID"]:
+                        img_name = self.args.data_path+'/'+self.args.task+'/images/query/'+str(self.data.loc[index,'QueryID'])+".png"
+                        try:
+                            image = Image.open(
+                                img_name
+                            ).convert("RGB")
+                        except PIL.UnidentifiedImageError:
+                            image = cv2.imread(img_name)
+                            image = cv2.cvtColor(image,cv2.COLOR_BGR2RGB)
+                    else:
+                        image = Image.fromarray(128 * np.ones((256, 256, 3), dtype=np.uint8))
+                    image = self.transforms(image)
+                    segment = segment[1:]
+                    sentence = sentence[1:]
+                    segment += 1
             else:
-                image_q = Image.fromarray(128 * np.ones((256, 256, 3), dtype=np.uint8))
-            image_q = self.transforms(image_q)
-        
-        image_d = None
-        if self.args.model in ["img", "concatbow", "concatbert", "mmbt", "mmbt_feat"]:
-            if self.data.loc[index,"DocID"]:
-                img_name_d = self.args.data_path+'/'+self.args.task+'/images/doc/'+str(self.data.loc[index,'DocID'])+".png"
-                try:
-                    image_d = Image.open(
-                        img_name_d
-                    ).convert("RGB")
-                except PIL.UnidentifiedImageError:
-                    image_d = cv2.imread(img_name_d)
-                    image_d = cv2.cvtColor(image_d,cv2.COLOR_BGR2RGB)
-            else:
-                image_d = Image.fromarray(128 * np.ones((256, 256, 3), dtype=np.uint8))
-            image_d = self.transforms(image_d)
-        
-        neg_img_d = None
-        if self.args.model in ["img", "concatbow", "concatbert", "mmbt", "mmbt_feat"]:
-            if self.data.loc[j_idx,"DocID"]:
-                neg_img_name_d = self.args.data_path+'/'+self.args.task+'/images/doc/'+str(self.data.loc[j_idx,'DocID'])+".png"
-                try:
-                    neg_img_d = Image.open(
-                        neg_img_name_d
-                    ).convert("RGB")
-                except PIL.UnidentifiedImageError:
-                    neg_img_d = cv2.imread(neg_img_name_d)
-                    neg_img_d = cv2.cvtColor(neg_img_d,cv2.COLOR_BGR2RGB)
-            else:
-                neg_img_d = Image.fromarray(128 * np.ones((256, 256, 3), dtype=np.uint8))
-            neg_img_d = self.transforms(neg_img_d)
+                #documents
+                sentence = (
+                self.text_start_token
+                + self.tokenizer(self.data.loc[index,"DocText"])[
+                    : (self.args.max_seq_len - 1)
+                ]
+                )
+                segment = torch.zeros(len(sentence))
+                sentence = torch.LongTensor(
+                    [
+                        self.vocab.stoi[w] if w in self.vocab.stoi else self.vocab.stoi["[UNK]"]
+                        for w in sentence
+                    ]
+                )
+                label = torch.LongTensor(
+                    [self.args.labels.index(self.data.loc[index,"Label"])]
+                )
+                image = None
+                if self.args.model in ["img", "concatbow", "concatbert", "mmbt", "mmbt_feat"]:
+                    if self.data.loc[index,"DocID"]:
+                        img_name = self.args.data_path+'/'+self.args.task+'/images/doc/'+str(self.data.loc[index,'DocID'])+".png"
+                        try:
+                            image = Image.open(
+                                img_name
+                            ).convert("RGB")
+                        except PIL.UnidentifiedImageError:
+                            image = cv2.imread(img_name)
+                            image = cv2.cvtColor(image,cv2.COLOR_BGR2RGB)
+                    else:
+                        image = Image.fromarray(128 * np.ones((256, 256, 3), dtype=np.uint8))
+                    image = self.transforms(image)
+                    segment = segment[1:]
+                    sentence = sentence[1:]
+                    # The first segment (0) is of images.
+                    segment += 1
+            return sentence, segment, image, label
+        else:
+            sentence_q = (
+            self.text_start_token
+            + self.tokenizer(self.data.loc[index,"QueryText"])[
+                : (self.args.max_seq_len - 1)
+            ]
+            )
+            sentence_d = (
+            self.text_start_token
+            + self.tokenizer(self.data.loc[index,"DocText"])[
+                : (self.args.max_seq_len - 1)
+            ]
+            )
+            
+            #negative random document
+            j_idx = randint(0,len(self.data)-1)
+            neg_sentence_d = (
+            self.text_start_token
+            + self.tokenizer(self.data.loc[j_idx,"DocText"])[
+                : (self.args.max_seq_len - 1)
+            ]
+            )
+            segment_q = torch.zeros(len(sentence_q))
+            segment_d = torch.zeros(len(sentence_d))
+            neg_segment_d = torch.zeros(len(neg_sentence_d))
+            sentence_q = torch.LongTensor(
+                [
+                    self.vocab.stoi[w] if w in self.vocab.stoi else self.vocab.stoi["[UNK]"]
+                    for w in sentence_q
+                ]
+            )
+            sentence_d = torch.LongTensor(
+                [
+                    self.vocab.stoi[w] if w in self.vocab.stoi else self.vocab.stoi["[UNK]"]
+                    for w in sentence_d
+                ]
+            )
+            neg_sentence_d = torch.LongTensor(
+                [
+                    self.vocab.stoi[w] if w in self.vocab.stoi else self.vocab.stoi["[UNK]"]
+                    for w in neg_sentence_d
+                ]
+            )
+            label = torch.LongTensor(
+                [self.args.labels.index(self.data.loc[index,"Label"])]
+            )
+            
+            #! Image Loading, search by ID in folder (query and document)
+            image_q = None
+            if self.args.model in ["img", "concatbow", "concatbert", "mmbt", "mmbt_feat"]:
+                if self.data.loc[index,"QueryID"]:
+                    img_name_q = self.args.data_path+'/'+self.args.task+'/images/query/'+str(self.data.loc[index,'QueryID'])+".png"
+                    try:
+                        image_q = Image.open(
+                            img_name_q
+                        ).convert("RGB")
+                    except PIL.UnidentifiedImageError:
+                        image_q = cv2.imread(img_name_q)
+                        image_q = cv2.cvtColor(image_q,cv2.COLOR_BGR2RGB)
+                else:
+                    image_q = Image.fromarray(128 * np.ones((256, 256, 3), dtype=np.uint8))
+                image_q = self.transforms(image_q)
+            
+            image_d = None
+            if self.args.model in ["img", "concatbow", "concatbert", "mmbt", "mmbt_feat"]:
+                if self.data.loc[index,"DocID"]:
+                    img_name_d = self.args.data_path+'/'+self.args.task+'/images/doc/'+str(self.data.loc[index,'DocID'])+".png"
+                    try:
+                        image_d = Image.open(
+                            img_name_d
+                        ).convert("RGB")
+                    except PIL.UnidentifiedImageError:
+                        image_d = cv2.imread(img_name_d)
+                        image_d = cv2.cvtColor(image_d,cv2.COLOR_BGR2RGB)
+                else:
+                    image_d = Image.fromarray(128 * np.ones((256, 256, 3), dtype=np.uint8))
+                image_d = self.transforms(image_d)
+            
+            neg_img_d = None
+            if self.args.model in ["img", "concatbow", "concatbert", "mmbt", "mmbt_feat"]:
+                if self.data.loc[j_idx,"DocID"]:
+                    neg_img_name_d = self.args.data_path+'/'+self.args.task+'/images/doc/'+str(self.data.loc[j_idx,'DocID'])+".png"
+                    try:
+                        neg_img_d = Image.open(
+                            neg_img_name_d
+                        ).convert("RGB")
+                    except PIL.UnidentifiedImageError:
+                        neg_img_d = cv2.imread(neg_img_name_d)
+                        neg_img_d = cv2.cvtColor(neg_img_d,cv2.COLOR_BGR2RGB)
+                else:
+                    neg_img_d = Image.fromarray(128 * np.ones((256, 256, 3), dtype=np.uint8))
+                neg_img_d = self.transforms(neg_img_d)
 
-        if self.args.model == "mmbt":
-            # The first SEP is part of Image Token.
-            segment_q = segment_q[1:]
-            sentence_q = sentence_q[1:]
-            # The first segment (0) is of images.
-            segment_q += 1
-            # The first SEP is part of Image Token.
-            segment_d = segment_d[1:]
-            sentence_d = sentence_d[1:]
-            # The first segment (0) is of images.
-            segment_d += 1
-            neg_segment_d = neg_segment_d[1:]
-            neg_sentence_d = neg_sentence_d[1:]
-            # The first segment (0) is of images.
-            neg_segment_d += 1
-        
-        return sentence_q, segment_q, image_q, sentence_d, segment_d, image_d, neg_sentence_d, neg_segment_d, neg_img_d, label
+            if self.args.model == "mmbt":
+                # The first SEP is part of Image Token.
+                segment_q = segment_q[1:]
+                sentence_q = sentence_q[1:]
+                # The first segment (0) is of images.
+                segment_q += 1
+                # The first SEP is part of Image Token.
+                segment_d = segment_d[1:]
+                sentence_d = sentence_d[1:]
+                # The first segment (0) is of images.
+                segment_d += 1
+                neg_segment_d = neg_segment_d[1:]
+                neg_sentence_d = neg_sentence_d[1:]
+                # The first segment (0) is of images.
+                neg_segment_d += 1
+            
+            return sentence_q, segment_q, image_q, sentence_d, segment_d, image_d, neg_sentence_d, neg_segment_d, neg_img_d, label
