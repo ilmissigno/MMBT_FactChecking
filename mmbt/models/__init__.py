@@ -10,14 +10,14 @@
 from mmbt.models.bert import BertClf
 from mmbt.models.image import ImageClf
 from mmbt.models.mmbt import MultimodalBertClf
-from mmbt.models.mmbt_feat import MultimodalBertClf
+from mmbt.models.mmbt_feat import MultimodalBertClfFeat
 
 
 MODELS = {
     "bert": BertClf,
     "img": ImageClf,
     "mmbt": MultimodalBertClf,
-    "mmbt_feat": MultimodalBertClf,
+    "mmbt_feat": MultimodalBertClfFeat,
 }
 
 

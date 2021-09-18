@@ -70,7 +70,7 @@ class TsvDatasetMulti(Dataset):
         Returns:
             [current element in dataloader]
         """
-        if self.args.doc_extraction:
+        if self.args.doc_extraction == True:
             #doc extraction
             if self.multi == 'query':
                 #queries

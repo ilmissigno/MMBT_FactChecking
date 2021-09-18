@@ -5,7 +5,8 @@ from allrank.allrank.models.losses import approxNDCG
 
 PADDED_Y_VALUE = -1 #Costant padding value for ApproxNDCG
 
-class CrossSimilarity(torch.nn.Module):
+class CrossSimilarityFeat(torch.nn.Module):
+    #! FEATURE EXTRACTION CLASS
     """Cross Similarity class, is a class for calculate losses 
     and similarity between the outputs of the model.
     
@@ -20,7 +21,7 @@ class CrossSimilarity(torch.nn.Module):
     """
     
     def __init__(self):
-        super(CrossSimilarity, self).__init__()
+        super(CrossSimilarityFeat, self).__init__()
         self.ce = nn.CrossEntropyLoss()
         self.cos = nn.CosineSimilarity(dim=1,eps=1e-6)
         self.triplet = nn.TripletMarginLoss(margin=1.0, p=2)
@@ -43,7 +44,6 @@ class CrossSimilarity(torch.nn.Module):
         target = target.unsqueeze(1)
         score = self.cos(output_l,output_r)
         #! If using approxndcg loss
-        return res,approxNDCG.approxNDCGLoss(res,target,padded_value_indicator=PADDED_Y_VALUE)
+        return score
         #! If using triplet hinge loss
         # return res,self.triplet(output_l,output_r,output_neg_r)
-    

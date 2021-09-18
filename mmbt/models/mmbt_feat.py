@@ -14,9 +14,9 @@ from transformers import AutoModel
 from mmbt.models.image import ImageEncoder
 
 
-class ImageBertEmbeddings(nn.Module):
+class ImageBertEmbeddingsFeat(nn.Module):
     def __init__(self, args, embeddings):
-        super(ImageBertEmbeddings, self).__init__()
+        super(ImageBertEmbeddingsFeat, self).__init__()
         self.args = args
         self.img_embeddings = nn.Linear(args.img_hidden_sz, args.hidden_sz)
         self.position_embeddings = embeddings.position_embeddings
@@ -51,9 +51,9 @@ class ImageBertEmbeddings(nn.Module):
         embeddings = self.dropout(embeddings)
         return embeddings
 
-class MultimodalBertEncoder(nn.Module):
+class MultimodalBertEncoderFeat(nn.Module):
     def __init__(self, args):
-        super(MultimodalBertEncoder, self).__init__()
+        super(MultimodalBertEncoderFeat, self).__init__()
         self.args = args
         bert = AutoModel.from_pretrained(args.bert_model)
         self.txt_embeddings = bert.embeddings
@@ -68,7 +68,7 @@ class MultimodalBertEncoder(nn.Module):
             )
             self.txt_embeddings.token_type_embeddings = ternary_embeds
 
-        self.img_embeddings = ImageBertEmbeddings(args, self.txt_embeddings)
+        self.img_embeddings = ImageBertEmbeddingsFeat(args, self.txt_embeddings)
         self.img_encoder = ImageEncoder(args)
         self.encoder = bert.encoder
         self.pooler = bert.pooler
@@ -104,11 +104,11 @@ class MultimodalBertEncoder(nn.Module):
         
         return self.pooler(encoded_layers[-1])
 
-class MultimodalBertClf(nn.Module):
+class MultimodalBertClfFeat(nn.Module):
     def __init__(self, args):
-        super(MultimodalBertClf, self).__init__()
+        super(MultimodalBertClfFeat, self).__init__()
         self.args = args
-        self.enc = MultimodalBertEncoder(args)
+        self.enc = MultimodalBertEncoderFeat(args)
 
     def forward(self,txt,mask,segment,img):
         x = self.enc(txt,mask,segment,img)

@@ -26,6 +26,7 @@ from mmbt.utils.parseargs import *
 from mmbt.evaluate import Evaluate
 from mmbt.forward import *
 from mmbt.losses.CrossSimilarity import CrossSimilarity
+from mmbt.losses.CrossSimilarityFeat import CrossSimilarityFeat
 from mmbt.metrics.RankMetrics import *
 from mmbt.metrics.RankMetrics import ndcg as normalized_dcg
 
@@ -36,7 +37,7 @@ class Trainer():
     """
     def __init__(self):
         args = get_parsed_args()
-        if args.doc_extraction:
+        if args.doc_extraction == True:
             self.doc_feat_extraction(args)
         else:
             self.train(args)
@@ -133,7 +134,7 @@ class Trainer():
         log_metrics(f"Test - ", test_metrics, args, logger)
     
     def doc_feat_extraction(self,args):
-        loss_obj = CrossSimilarity()
+        loss_obj = CrossSimilarityFeat()
         logger = create_logger("%s/logfile.log" % args.savedir, args)
         seed_val = randint(0, 10000)
         logger.warning("*"*50+" SEED : "+str(seed_val)+" "+"*"*50)

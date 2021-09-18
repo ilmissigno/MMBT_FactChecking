@@ -27,7 +27,7 @@ def model_forward(model, args,loss_obj, batch):
                                     img_left,img_right, neg_txt_right,neg_mask_right,neg_segment_right,neg_img_right)
     
     tgt = tgt.cuda()
-    res,loss = loss_obj(out_l,out_r, tgt, out_neg_r)
+    res,loss = loss_obj(out_l,out_r, tgt)
     return loss,res,tgt
 
 def model_forward_feat(model, args, batch):
