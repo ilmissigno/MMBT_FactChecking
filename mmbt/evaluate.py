@@ -10,6 +10,7 @@ from mmbt.utils.parseargs import *
 from mmbt.forward import *
 from mmbt.metrics.RankMetrics import *
 from mmbt.metrics.RankMetrics import ndcg as normalized_dcg
+from torchmetrics.utilities.data import select_topk
 
 class Evaluate():
     """[Evaluate Class : Model evaluation]
@@ -36,18 +37,23 @@ class Evaluate():
                 else:
                     pred = torch.nn.functional.softmax(out, dim=1).cpu().detach().numpy()
                     pred_no_npy = torch.nn.functional.softmax(out, dim=1).argmax(dim=1).cpu().detach()
+                    pred_no_npy_2 = torch.nn.functional.softmax(out, dim=1).squeeze(1).cpu().detach()
                     # pred_right = torch.nn.functional.softmax(out_r, dim=1).argmax(dim=1).cpu().detach().numpy()
-                tgt_no_npy = tgt.cpu().detach()
+                new_preds_5 = select_topk(pred_no_npy_2,topk=5,dim=0)
+                new_preds_3 = select_topk(pred_no_npy_2,topk=3,dim=0)
+                new_preds_1 = select_topk(pred_no_npy_2,topk=2,dim=0)
+                new_preds_x = select_topk(pred_no_npy_2,topk=4,dim=0)
                 tgt2 = tgt.cpu().detach().numpy()
-                ndcg_list_at_5.append(normalized_dcg(pred_no_npy,tgt_no_npy,ats=[5]).numpy())
-                ndcg_list_at_3.append(normalized_dcg(pred_no_npy,tgt_no_npy,ats=[3]).numpy())
-                ndcg_list_at_1.append(normalized_dcg(pred_no_npy,tgt_no_npy,ats=[1]).numpy())
+                tgt_no_npy = tgt.cpu().detach()
+                ndcg_list_at_5.append(normalized_dcg(new_preds_5,tgt_no_npy,ats=[5]).numpy())
+                ndcg_list_at_3.append(normalized_dcg(new_preds_3,tgt_no_npy,ats=[3]).numpy())
+                ndcg_list_at_1.append(normalized_dcg(new_preds_1,tgt_no_npy,ats=[2]).numpy())
                 map_list.append(accuracy_score(tgt2,pred_no_npy.numpy()))
                 map_list_at_1.append(accuracy_score(tgt2,pred_no_npy.numpy()))
                 # hit_list_at_10.append(precision_at_k(pred,10))
-                hit_list_at_5.append(getHitRatioAtK(pred,tgt.unsqueeze(1).cpu().detach().numpy(),5))
-                hit_list_at_3.append(getHitRatioAtK(pred,tgt.unsqueeze(1).cpu().detach().numpy(),3))
-                hit_list_at_1.append(getHitRatioAtK(pred,tgt.unsqueeze(1).cpu().detach().numpy(),1))
+                hit_list_at_5.append(accuracy_score(tgt.unsqueeze(1).cpu().detach().numpy(),new_preds_1.unsqueeze(1).numpy()))
+                hit_list_at_3.append(accuracy_score(tgt.unsqueeze(1).cpu().detach().numpy(),new_preds_3.unsqueeze(1).numpy()))
+                hit_list_at_1.append(accuracy_score(tgt.unsqueeze(1).cpu().detach().numpy(),new_preds_x.unsqueeze(1).numpy()))
 
             metrics = {"loss": np.nanmean(losses)}
             if args.task_type == "multilabel":

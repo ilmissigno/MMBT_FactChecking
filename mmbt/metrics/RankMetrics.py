@@ -119,7 +119,7 @@ def compute_precision_recall(rankedList, k):
     recall = float(num_hit) / (np.sum(rankedList) + 1e-10)
     return precision, recall
 
-def getHitRatioForList(ranklist, gtItems, k):
+def getHitRatioForList(ranklist, gtItems):
     for item in ranklist:
         if item in gtItems:
             return 1.0
