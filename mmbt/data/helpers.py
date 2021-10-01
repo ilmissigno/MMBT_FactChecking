@@ -14,7 +14,7 @@ from collections import Counter
 
 import torch
 import torchvision.transforms as transforms
-from transformers import AutoTokenizer
+from transformers import AutoTokenizer,BertTokenizer
 from torch.utils.data import DataLoader
 
 from mmbt.data.dataset import TsvDatasetMulti
@@ -63,7 +63,7 @@ def get_vocab(args):
     #! Function for get Tokenizer from Transformers
     vocab = Vocab()
     if args.model in ["bert", "mmbt","mmbt_feat", "concatbert"]:
-        bert_tokenizer = AutoTokenizer.from_pretrained(
+        bert_tokenizer = BertTokenizer.from_pretrained(
             args.bert_model, do_lower_case=True
         )
         vocab.stoi = bert_tokenizer.vocab

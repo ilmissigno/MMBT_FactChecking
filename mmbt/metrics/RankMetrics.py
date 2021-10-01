@@ -1,5 +1,6 @@
 import numpy as np
 import torch
+import math
 
 PADDED_Y_VALUE = -1 #costant parameter for ndcg
 
@@ -15,6 +16,68 @@ PADDED_Y_VALUE = -1 #costant parameter for ndcg
     average_precision : Average Precision for all articles
 ]
 """
+
+def compute_dcg_at_k(relevances, k):
+    dcg = 0
+    for i in range(min(len(relevances), k)):
+        dcg += relevances[i] / np.log2(i + 2)  #+2 as we start our idx at 0
+    return dcg
+
+def new_ndcg_at_k(query_embeddings,top_k,hits,n_batch_q,relevances):
+    """ NDCG@K for retrieval
+
+    Args:
+        query_embeddings (Tensor): Query embedding tensor (NOT USED)
+        top_k (int): K value
+        hits (List): Top K documents for single query
+        n_batch_q (int): QueryID
+        relevances (Dict(str,Set[str])): Ground truth of couples query-doc with label equals to 1
+
+    Returns:
+        int: NDCG Mean value per Query
+    """
+    ndcg = []
+    queries_result_list = {}
+    queries_result_list['ndcg@'+str(top_k)] = []
+    for hit in hits:
+        queries_result_list['ndcg@'+str(top_k)].append({'corpus_id': hit['corpus_id']})
+    top_hits = sorted(queries_result_list['ndcg@'+str(top_k)], key=lambda x: x['corpus_id'], reverse=False)
+    query_relevant_docs = relevances[n_batch_q]
+    # NDCG@k
+    predicted_relevance = [1 if top_hit['corpus_id'] in query_relevant_docs else 0 for top_hit in top_hits[0:top_k]]
+    true_relevances = [1] * len(query_relevant_docs)
+
+    ndcg_value = compute_dcg_at_k(predicted_relevance, top_k) / compute_dcg_at_k(true_relevances, top_k)
+    ndcg.append(ndcg_value)
+    return np.mean(ndcg)
+
+def new_hit_at_k(query_embeddings,top_k,hits,n_batch_q,relevances):
+    """ HIT@K for retrieval
+
+    Args:
+        query_embeddings (Tensor): Query embedding tensor
+        top_k (int): K value
+        hits (List): Top K documents for single query
+        n_batch_q (int): QueryID
+        relevances (Dict(str,Set[str])): Ground truth of couples query-doc with label equals to 1
+
+    Returns:
+        int: Hit value per Query
+    """
+    num_hits_at_k = 0
+    queries_result_list = {}
+    queries_result_list['hit@'+str(top_k)] = [[] for _ in range(len(query_embeddings))]
+    for query_itr in range(len(query_embeddings)):
+        for hit in hits:
+            queries_result_list['hit@'+str(top_k)][query_itr].append({'corpus_id': hit['corpus_id'], 'score': hit['score']})
+    for query_itr in range(len(queries_result_list)):
+        top_hits = sorted(queries_result_list['hit@'+str(top_k)][query_itr], key=lambda x: x['score'], reverse=True)
+        query_relevant_docs = relevances[n_batch_q]
+        for hit in top_hits[0:top_k]:
+            if hit['corpus_id'] in query_relevant_docs:
+                num_hits_at_k += 1
+                break
+    return num_hits_at_k
 
 def precision_at_k(r, k):
     """Score is precision @ k
@@ -70,7 +133,8 @@ def ndcg(y_pred, y_true, ats=None, gain_function=lambda x: torch.pow(2, x) - 1, 
 def __apply_mask_and_get_true_sorted_by_preds(y_pred, y_true, padding_indicator=PADDED_Y_VALUE):
     mask = y_true == padding_indicator
 
-    y_pred[mask] = 100000.0
+    # y_pred[mask] = 100000.0
+    y_pred[mask] = 10000.0
     y_true[mask] = 0.0
 
     _, indices = y_pred.sort(descending=True, dim=-1)

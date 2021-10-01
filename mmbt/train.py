@@ -29,6 +29,8 @@ from mmbt.losses.CrossSimilarity import CrossSimilarity
 from mmbt.losses.CrossSimilarityFeat import CrossSimilarityFeat
 from mmbt.metrics.RankMetrics import *
 from mmbt.metrics.RankMetrics import ndcg as normalized_dcg
+from mmbt.data.from_folder_dataset import *
+from mmbt.extraction import *
 
 
 class Trainer():
@@ -37,7 +39,7 @@ class Trainer():
     """
     def __init__(self):
         args = get_parsed_args()
-        if args.doc_extraction == True:
+        if args.doc_extraction == "Yes":
             self.doc_feat_extraction(args)
         else:
             self.train(args)
@@ -134,7 +136,6 @@ class Trainer():
         log_metrics(f"Test - ", test_metrics, args, logger)
     
     def doc_feat_extraction(self,args):
-        loss_obj = CrossSimilarityFeat()
         logger = create_logger("%s/logfile.log" % args.savedir, args)
         seed_val = randint(0, 10000)
         logger.warning("*"*50+" SEED : "+str(seed_val)+" "+"*"*50)
@@ -150,111 +151,53 @@ class Trainer():
         torch.save(args, os.path.join(args.savedir, "args.pt"))
         start_epoch, global_step, n_no_improve, best_metric = 0, 0, 0, -np.inf
         logger.info("Doc Extraction..")
-        """
-        Addestrare il modello come normale (nel branch master)
-        Poi fare un caricamento dei checkpoint del modello
-        poi per ogni documento confrontare con ogni query e prendere il massimo della similarità
-        questo per validation e test
-        """
-        actual_epoch = 0
-        model.train()
-        for i_epoch in range(start_epoch,args.max_epochs):
-            train_cnter = 0
-            logger.warning("*"*50+" EPOCH "+str(i_epoch)+" "+"*"*50)
-            optimizer1.zero_grad()
-            iter_doc = iter(train_doc_loader)
-            for batch_d in tqdm(iter_doc, total=len(train_doc_loader)):
-                with torch.cuda.amp.autocast():
-                    out_d,tgt = model_forward_feat(model, args, batch_d)
-                optimizer1.step()
-                torch.cuda.empty_cache()
-                gc.collect()
-                train_cnter+=1
-                if train_cnter == 200:
-                    break
-            actual_epoch = i_epoch
-        logger.info("*"*50+" Saving model to checkpoint for epoch : "+str(actual_epoch)+" "+"*"*50)
-        save_checkpoint(
-        {
-            "epoch": actual_epoch + 1,
-            "state_dict": model.state_dict(),
-            "optimizer": optimizer1.state_dict(),
-            "scheduler": scheduler1.state_dict(),
-            "n_no_improve": n_no_improve,
-            "best_metric": best_metric,
-        },
-        False,
-        args.savedir,"doc_extraction_model.pt")
+        setting_dict = {
+            'start_epoch': start_epoch,
+            'logger': logger,
+            'optimizer1': optimizer1
+        }
         
-        logger.warning("*"*50+" VALIDATION "+"*"*50)
+        if args.doc_training == 'training':
+            #! Document Feature Extraction : Training of the model
+            model, actual_epoch = doc_train(model,setting_dict,args,train_query_loader,train_doc_loader)
+            
+            logger.info("*"*50+" Saving model to checkpoint for epoch : "+str(actual_epoch)+" "+"*"*50)
+            save_checkpoint(
+            {
+                "epoch": actual_epoch + 1,
+                "state_dict": model.state_dict(),
+                "optimizer": optimizer1.state_dict(),
+                "scheduler": scheduler1.state_dict(),
+                "n_no_improve": n_no_improve,
+                "best_metric": best_metric,
+            },
+            False,
+            args.savedir,"doc_extraction_model.pt")
         logger.info("*"*50+" Loading model from checkpoint "+"*"*50)
         load_checkpoint(model, os.path.join(args.savedir, "doc_extraction_model.pt"))
         model.eval()
-        train_losses = []
-        val_total_similarities = []
-        val_counterz = 0
-        iter_query = iter(val_query_loader)
-        for batch_q in tqdm(iter_query, total=len(val_query_loader)):
-            val_similarities_res = []
-            d_counterz = 0
-            iter_doc = iter(val_doc_loader)
-            for batch_d in tqdm(iter_doc, total=len(val_doc_loader)):
-                with torch.cuda.amp.autocast():
-                    out_d,tgt = model_forward_feat(model, args, batch_d)
-                    out_q,_ = model_forward_feat(model, args, batch_q)
-                score = loss_obj(out_d,out_q,tgt)
-                optimizer1.step()
-                optimizer1.zero_grad()
-                val_similarities_res.append(score.cpu().detach().numpy())
-                torch.cuda.empty_cache()
-                gc.collect()
-                d_counterz+=1
-                if d_counterz == 50:
-                    break
-            #? Similarità qui tra singolo doc e query valutate (media?)
-            val_total_similarities.append(np.nanmean(val_similarities_res))
-            val_counterz+=1
-            if val_counterz == 50:
-                break
-        logger.info("VALIDATION : Total similarity per DOCUMENT : ")
-        print(val_total_similarities)
-        logger.info("VALIDATION : Total similarity of ALL DOCUMENTS : "+str(np.nanmax(val_total_similarities)))
         
+        test_query_loaders = get_queries_dataloader(args)
+        test_doc_loaders = get_documents_dataloader(args)
         
-        logger.warning("*"*50+" TEST "+"*"*50)
-        model.eval()
-        train_losses = []
-        test_total_similarities = []
-        times_total = {}
-        test_counterz = 0
-        for batch_q in tqdm(iter_query, total=len(test_query_loaders)):
-            iter_query = iter(test_query_loaders)
-            test_similarities_res = []
-            d_counterz = 0
-            iter_doc = iter(test_doc_loaders)
-            start_time = time.time()
-            for batch_d in tqdm(iter_doc, total=len(test_doc_loaders)):
-                with torch.cuda.amp.autocast():
-                    out_d,tgt = model_forward_feat(model, args, batch_d)
-                    out_q,_ = model_forward_feat(model, args, batch_q)
-                score = loss_obj(out_d,out_q,tgt)
-                optimizer1.step()
-                optimizer1.zero_grad()
-                test_similarities_res.append(score.cpu().detach().numpy())
-                torch.cuda.empty_cache()
-                gc.collect()
-                d_counterz+=1
-                if d_counterz == 50:
-                    break
-            end_time = time.time()
-            #? Similarità qui tra singolo doc e query valutate (media?)
-            test_total_similarities.append(np.nanmean(test_similarities_res))
-            times_total["query_n_"+str(test_counterz)] = end_time - start_time
-            test_counterz+=1
-            if test_counterz == 50:
-                break
-            
-        write_times_to_csv("times_test_politifact_50query.csv",times_total)
-        logger.info("TEST : Total similarity per DOCUMENT : ")
-        print(test_total_similarities)
-        logger.info("TEST : Total similarity of ALL DOCUMENTS : "+str(np.nanmax(test_total_similarities)))
+        #! Save Features onto disk if specified (the first time execute with Yes)
+        if args.save_documents == "Yes":
+            logger.warning("*"*50+" DOCUMENT EMBEDDING : SAVE DOCUMENTS IN FOLDER "+"*"*50)
+            # logger.info("*"*50+" Save Documents for VALIDATION SET "+"*"*50)
+            # save_doc_extracted(model,args,val_doc_loader,"features/doc_extraction/val")
+            logger.info("*"*50+" Save Documents for TEST SET "+"*"*50)
+            save_doc_extracted(model,args,test_doc_loaders,"features/doc_extraction/test/"+args.type_dataset)
+        
+        #! LOADING FROM FOLDER INFERENCE ON TEST SET RETRIEVAL
+        filtered_maxes_sim,top_k,times_queries,ndcgmean,hitmean = inference_docs(model,logger,args,test_query_loaders,"features/doc_extraction/test/"+args.type_dataset+"/")
+        
+        save_metrics(filtered_maxes_sim, "embedding_final_"+args.type_dataset+"_top"+str(top_k)+".txt")
+        write_times_to_csv('times_test_'+args.type_dataset+'_'+str(top_k)+'query.csv',times_queries)
+        logger.info("NDCG MEAN : "+str(ndcgmean))
+        logger.info("HIT MEAN : "+str(hitmean))
+        means_dict = {
+            'ndcg@'+str(top_k):ndcgmean,
+            'hit@'+str(top_k):hitmean
+        }
+        write_means_to_csv(means_dict,'means_'+args.type_dataset+"_top"+str(top_k)+".csv")
+        logger.warning("*"*50+" DOCUMENT EMBEDDING : SIMILARITIES SAVED. "+"*"*50)

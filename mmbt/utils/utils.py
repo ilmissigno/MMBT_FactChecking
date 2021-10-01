@@ -51,6 +51,13 @@ def write_times_to_csv(csv_file,times):
             writer.writerow(['Numero Query','Tempi Politifact MMBT'])
         for key, value in times.items():
             writer.writerow([key, value])
+            
+def write_means_to_csv(times,csv_file):
+    with open(csv_file, "w") as csv_f:
+        writer = csv.writer(csv_f)
+        writer.writerow(['Metric','Mean Value'])
+        for key, value in times.items():
+            writer.writerow([key, value])
 
 def truncate_seq_pair(tokens_a, tokens_b, max_length):
     """Truncates a sequence pair in place to the maximum length.

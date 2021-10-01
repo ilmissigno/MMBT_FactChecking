@@ -23,7 +23,7 @@ class CrossSimilarityFeat(torch.nn.Module):
     def __init__(self):
         super(CrossSimilarityFeat, self).__init__()
         self.ce = nn.CrossEntropyLoss()
-        self.cos = nn.CosineSimilarity(dim=1,eps=1e-6)
+        self.cos = nn.CosineSimilarity(dim=-1,eps=1e-6)
         self.triplet = nn.TripletMarginLoss(margin=1.0, p=2)
         
     def similarities(self,out_l,out_r):
@@ -37,13 +37,11 @@ class CrossSimilarityFeat(torch.nn.Module):
             [torch.Tensor]: [Cosine similarity Tensor between Query and Doc Tensors]
         """
         #! Cosine similarity between query and document from the single batch
-        return self.cos(out_l,out_r).unsqueeze(1)
+        return self.cos(out_l,out_r)
         
     def forward(self, output_l,output_r, target):
         res = self.similarities(output_l,output_r)
-        target = target.unsqueeze(1)
-        score = self.cos(output_l,output_r)
         #! If using approxndcg loss
-        return score
+        return res
         #! If using triplet hinge loss
         # return res,self.triplet(output_l,output_r,output_neg_r)

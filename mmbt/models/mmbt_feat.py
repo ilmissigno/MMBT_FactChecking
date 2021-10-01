@@ -9,7 +9,7 @@
 
 import torch
 import torch.nn as nn
-from transformers import AutoModel
+from transformers import BertModel
 
 from mmbt.models.image import ImageEncoder
 
@@ -55,7 +55,7 @@ class MultimodalBertEncoderFeat(nn.Module):
     def __init__(self, args):
         super(MultimodalBertEncoderFeat, self).__init__()
         self.args = args
-        bert = AutoModel.from_pretrained(args.bert_model)
+        bert = BertModel.from_pretrained(args.bert_model)
         self.txt_embeddings = bert.embeddings
 
         if args.task == "vsnli":
