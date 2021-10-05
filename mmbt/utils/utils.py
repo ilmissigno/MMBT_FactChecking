@@ -43,7 +43,7 @@ def load_checkpoint(model, path):
 def write_times_to_csv(csv_file,times):
     with open(csv_file, "w") as csv_f:
         writer = csv.writer(csv_f)
-        if csv_file.find("politifact") == -1:
+        if csv_file.find("Politifact") == -1:
             #Snopes
             writer.writerow(['Numero Query','Tempi Snopes MMBT'])
         else:

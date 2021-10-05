@@ -95,7 +95,7 @@ class Trainer():
             """
             model.eval()
             logger.info("Validation...")
-            metrics = Evaluate().model_eval(val_loader, model,args,loss_obj)
+            metrics,_ = Evaluate().model_eval(val_loader, model,args,loss_obj)
             log_metrics("Val", metrics, args, logger)
             tuning_metric = (
                 metrics["micro_f1"] if args.task_type == "multilabel" else metrics["ndcg_5"]
@@ -131,7 +131,8 @@ class Trainer():
         model.eval()
         logger.info("Test...")
         load_checkpoint(model, os.path.join(args.savedir, "model_best.pt"))
-        test_metrics = Evaluate().model_eval(test_loaders,model,args,loss_obj, store_preds=True)
+        test_metrics,times_test = Evaluate().model_eval(test_loaders,model,args,loss_obj, store_preds=True)
+        write_times_to_csv('times_test_'+args.type_dataset+'.csv',times_test)
         save_metrics(test_metrics,"snopes_test_no_text.txt")
         log_metrics(f"Test - ", test_metrics, args, logger)
     

@@ -2,6 +2,7 @@ from sklearn.metrics import f1_score, accuracy_score
 from tqdm import tqdm
 import torch
 import sys
+import time
 sys.path.append("")
 from mmbt.utils.utils import *
 from mmbt.utils.optimizer import *
@@ -26,10 +27,13 @@ class Evaluate():
             store_preds (bool, optional): [Write prediction on file]. Defaults to False.
 
         """
+        times_evaluate = {}
         with torch.no_grad():
             losses, preds,tgts = [], [], []
             ndcg_list_at_10,ndcg_list_at_5,ndcg_list_at_3,ndcg_list_at_1, hit_list_at_10,hit_list_at_5,hit_list_at_3,hit_list_at_1, map_list, map_list_at_1 = [], [], [], [], [], [], [], [], [], []
+            counter = 0
             for batch in tqdm(data, total=len(data)):
+                start_time = time.time()
                 loss,out,tgt = model_forward(model,args,loss_obj,batch)
                 losses.append(loss.item())
                 if args.task_type == "multilabel":
@@ -54,6 +58,9 @@ class Evaluate():
                 hit_list_at_5.append(accuracy_score(tgt.unsqueeze(1).cpu().detach().numpy(),new_preds_1.unsqueeze(1).numpy()))
                 hit_list_at_3.append(accuracy_score(tgt.unsqueeze(1).cpu().detach().numpy(),new_preds_3.unsqueeze(1).numpy()))
                 hit_list_at_1.append(accuracy_score(tgt.unsqueeze(1).cpu().detach().numpy(),new_preds_x.unsqueeze(1).numpy()))
+                end_time = time.time()
+                times_evaluate['time_batch_'+str(counter)] = end_time-start_time
+                counter+=1
 
             metrics = {"loss": np.nanmean(losses)}
             if args.task_type == "multilabel":
@@ -78,4 +85,4 @@ class Evaluate():
             if store_preds:
                 store_preds_to_disk(tgts, preds, args)
 
-            return metrics
+            return metrics,times_evaluate

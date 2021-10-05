@@ -1,12 +1,13 @@
 import numpy as np
 import torch
-import math
+from matchzoo.metrics import normalized_discounted_cumulative_gain
 
 PADDED_Y_VALUE = -1 #costant parameter for ndcg
 
 """
 [RankMetrics: This class provides all metrics for Ranking Problems]
 [Functions : 
+    evaluate_scoreMMBT : Evaluate scores from rankings dictionary
     precision_at_k : Average Precision for Top-K articles
     ndcg_at_k : Normalized Discounted Cumulative Gain for Top-K articles
     dcg_at_k : Discounted Cumulative Gain for Top-K articles
@@ -17,67 +18,35 @@ PADDED_Y_VALUE = -1 #costant parameter for ndcg
 ]
 """
 
-def compute_dcg_at_k(relevances, k):
-    dcg = 0
-    for i in range(min(len(relevances), k)):
-        dcg += relevances[i] / np.log2(i + 2)  #+2 as we start our idx at 0
-    return dcg
-
-def new_ndcg_at_k(query_embeddings,top_k,hits,n_batch_q,relevances):
-    """ NDCG@K for retrieval
+def evaluate_scoreMMBT(rankings, topK):
+    """Evaluate scores from rankings dictionary
 
     Args:
-        query_embeddings (Tensor): Query embedding tensor (NOT USED)
-        top_k (int): K value
-        hits (List): Top K documents for single query
-        n_batch_q (int): QueryID
-        relevances (Dict(str,Set[str])): Ground truth of couples query-doc with label equals to 1
+        rankings (Dict): Dictionary per query of docs, labels and similarity scores
+        topK (int): K value
 
     Returns:
-        int: NDCG Mean value per Query
+        Dict: Dictionary of scores NDCG and HIT
     """
-    ndcg = []
-    queries_result_list = {}
-    queries_result_list['ndcg@'+str(top_k)] = []
-    for hit in hits:
-        queries_result_list['ndcg@'+str(top_k)].append({'corpus_id': hit['corpus_id']})
-    top_hits = sorted(queries_result_list['ndcg@'+str(top_k)], key=lambda x: x['corpus_id'], reverse=False)
-    query_relevant_docs = relevances[n_batch_q]
-    # NDCG@k
-    predicted_relevance = [1 if top_hit['corpus_id'] in query_relevant_docs else 0 for top_hit in top_hits[0:top_k]]
-    true_relevances = [1] * len(query_relevant_docs)
-
-    ndcg_value = compute_dcg_at_k(predicted_relevance, top_k) / compute_dcg_at_k(true_relevances, top_k)
-    ndcg.append(ndcg_value)
-    return np.mean(ndcg)
-
-def new_hit_at_k(query_embeddings,top_k,hits,n_batch_q,relevances):
-    """ HIT@K for retrieval
-
-    Args:
-        query_embeddings (Tensor): Query embedding tensor
-        top_k (int): K value
-        hits (List): Top K documents for single query
-        n_batch_q (int): QueryID
-        relevances (Dict(str,Set[str])): Ground truth of couples query-doc with label equals to 1
-
-    Returns:
-        int: Hit value per Query
-    """
-    num_hits_at_k = 0
-    queries_result_list = {}
-    queries_result_list['hit@'+str(top_k)] = [[] for _ in range(len(query_embeddings))]
-    for query_itr in range(len(query_embeddings)):
-        for hit in hits:
-            queries_result_list['hit@'+str(top_k)][query_itr].append({'corpus_id': hit['corpus_id'], 'score': hit['score']})
-    for query_itr in range(len(queries_result_list)):
-        top_hits = sorted(queries_result_list['hit@'+str(top_k)][query_itr], key=lambda x: x['score'], reverse=True)
-        query_relevant_docs = relevances[n_batch_q]
-        for hit in top_hits[0:top_k]:
-            if hit['corpus_id'] in query_relevant_docs:
-                num_hits_at_k += 1
-                break
-    return num_hits_at_k
+    ndcg_metric = normalized_discounted_cumulative_gain.NormalizedDiscountedCumulativeGain
+    hits, ndcgs = [], []
+    for query, candidates in rankings.items():
+        docs, labels, predictions = candidates
+        predictions = np.array(predictions)
+        ndcg_mz = ndcg_metric(topK)(labels, predictions)
+        ndcgs.append(ndcg_mz)
+        positive_docs = set([d for d, lab in zip(docs, labels) if lab == 1])
+        indices = np.argsort(-predictions)[:topK]  # indices of items with highest scores
+        docs = np.array(docs)
+        ranked_docs = docs[indices]
+        hit = getHitRatioForList(ranked_docs, positive_docs)
+        hits.append(hit)
+    results = {}
+    results["ndcg"] = np.nanmean(ndcgs)
+    results["ndcg_list"] = ndcgs
+    results["hits"] = np.nanmean(hits)
+    results["hits_list"] = hits
+    return results
 
 def precision_at_k(r, k):
     """Score is precision @ k
