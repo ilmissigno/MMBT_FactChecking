@@ -20,7 +20,9 @@ The system combines BERT (text) + ResNet-152 (images) in a multimodal model (MMB
 10. [Complete Step-by-Step Guide](#complete-step-by-step-guide)
 11. [FAISS GPU](#faiss-gpu)
 12. [Quick Reference](#quick-reference)
-13. [Troubleshooting](#troubleshooting)
+13. [Citation](#citation)
+14. [Troubleshooting](#troubleshooting)
+15. [License](#license)
 
 ---
 
@@ -149,7 +151,10 @@ QueryID  QueryText  QueryImages  DocID  DocText  DocImages  Label
 
 ### 2.1 Snopes & Politifact (ready to use)
 
-Download the datasets from: https://drive.google.com/drive/folders/1YDRxCTH_xEMojw1BaEWxDcpLwnkp31f4
+For the original Snopes and Politifact resources, refer to the EMNLP2020 repository:
+https://github.com/nguyenvo09/EMNLP2020
+
+Use the dataset links and structure documented there, then place the prepared files in this project as follows:
 
 Place them in this structure:
 
@@ -822,6 +827,27 @@ python -m scripts.benchmark_baselines_man --dataset mumin --eval-only      # Eva
 python scripts/prepare_mumin_dataset_v2.py --neg-ratio 30 --exclude-langs en --output-dir datasets/mumin_mmbt
 python scripts/prepare_m3check_dataset.py --input-dir datasets/M3-check --output-dir datasets/mmbt_m3check_multilingual --neg-ratio 30
 python scripts/prepare_m3check_dataset.py --input-dir datasets/M3-check --output-dir datasets/mmbt_m3check_no_eng --neg-ratio 30 --exclude-langs eng
+```
+
+---
+
+## Citation
+
+If you use this repository in your work, please cite the following paper:
+
+```bibtex
+@article{FORMISANO2026133703,
+title = {Unifying retrieval and re-ranking: A multimodal approach to detecting fact-checked information},
+journal = {Neurocomputing},
+pages = {133703},
+year = {2026},
+issn = {0925-2312},
+doi = {https://doi.org/10.1016/j.neucom.2026.133703},
+url = {https://www.sciencedirect.com/science/article/pii/S0925231226011008},
+author = {Raffaele Formisano and Valerio {La Gatta} and Vincenzo Moscato and Giancarlo Sperl\`i},
+keywords = {Fact-checking, Verified claim retrieval, Multimodal disinformation mining},
+abstract = {Although recently several fact-checking organizations have emerged to verify disinformation, fake news has continued to proliferate, especially exploiting multimodal data on social media. As a result, the fact-checking verification process cannot keep up with this overwhelming and uncertain content, thus raising the need to adopt improved strategies for disinformation detection. The fact-checking process could be optimised considering the tendency of viral claims to be reshared over time and in different contexts. In other words, verifying whether a (multimodal) claim has been previously fact-checked can ease fact-checkers' manual effort and would provide reliable evidence for the input claim. In this paper, considering the task's ranking formulation, we propose a novel multimodal information retrieval approach aiming at retrieving and re-ranking a list of verified documents according to their relevance with the input claim. Specifically, we exploit text and image's modalities and leverage the modern visual-language models to extract powerful representations that capture their complex relationships. Our experiments on three benchmark datasets prove the superiority of the proposed system: in re-ranking settings, it exceeds competitors up to 15 NDCG points; in retrieval settings, it is the only one which overcomes the standard BM25 baseline.}
+}
 ```
 
 ---
