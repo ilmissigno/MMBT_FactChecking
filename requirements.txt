@@ -1,0 +1,56 @@
+# Production requirements for MMBT Fact-Checking
+# Python 3.9+ recommended
+
+# Deep Learning Framework
+torch>=1.12.0
+torchvision>=0.13.0
+
+# Transformers & NLP
+transformers>=4.20.0
+sentence-transformers>=2.2.0
+tokenizers>=0.12.0
+
+pytorch_pretrained_bert>=0.6.2
+
+# Data Processing
+pandas>=1.4.0
+numpy>=1.21.0
+scikit-learn>=1.0.0
+
+# Image Processing
+Pillow>=9.0.0
+opencv-python>=4.5.0
+
+# Configuration & CLI
+configargparse>=1.5.0
+
+# Metrics
+torchmetrics>=0.9.0
+
+# Progress bars & Logging
+tqdm>=4.64.0
+
+# Production & Deployment
+gunicorn>=20.1.0
+flask>=2.1.0
+
+# Testing
+pytest>=7.0.0
+pytest-cov>=3.0.0
+
+# Code Quality
+black>=22.0.0
+isort>=5.10.0
+flake8>=4.0.0
+mypy>=0.950
+
+# FAISS for efficient similarity search
+faiss-cpu>=1.7.2
+# faiss-gpu>=1.7.2  # Uncomment for GPU support
+
+# MuMiN Dataset (optional)
+mumin>=1.0.0
+
+# Additional utilities
+pyyaml>=6.0
+python-dotenv>=0.20.0

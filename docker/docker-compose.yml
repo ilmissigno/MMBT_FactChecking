@@ -1,0 +1,129 @@
+# =============================================================================
+# Docker Compose for MMBT Fact-Checking
+# Usage: docker-compose -f docker/docker-compose.yml up [service]
+# =============================================================================
+
+version: '3.8'
+
+x-common: &common
+  build:
+    context: ..
+    dockerfile: docker/Dockerfile
+    target: production
+  image: mmbt-factcheck:latest
+  runtime: nvidia
+  environment:
+    - NVIDIA_VISIBLE_DEVICES=all
+    - CUDA_VISIBLE_DEVICES=0
+    - PYTHONPATH=/app:/app/lib
+  volumes:
+    - ../datasets:/app/datasets:ro
+    - ../data:/app/data
+    - ../models:/app/models
+    - ../outputs:/app/outputs
+    - ../logs:/app/logs
+    - ../configs:/app/configs:ro
+  deploy:
+    resources:
+      reservations:
+        devices:
+          - driver: nvidia
+            count: 1
+            capabilities: [gpu]
+
+services:
+  # ==========================================
+  # Training
+  # ==========================================
+  train:
+    <<: *common
+    container_name: mmbt-train
+    command: python main.py -c configs/configurazione.conf
+
+  # ==========================================
+  # Evaluation
+  # ==========================================
+  evaluate:
+    <<: *common
+    container_name: mmbt-eval
+    command: python main.py -c configs/configurazione.conf --eval-only
+
+  # ==========================================
+  # Experiments
+  # ==========================================
+  experiment-noise:
+    <<: *common
+    container_name: mmbt-exp-noise
+    command: >
+      python scripts/run_experiments.py 
+        --experiment noise 
+        --dataset snopes 
+        --noise-levels "0.0,0.1,0.2,0.3"
+        --output-dir outputs
+
+  experiment-complexity:
+    <<: *common
+    container_name: mmbt-exp-complexity
+    command: >
+      python scripts/run_experiments.py 
+        --experiment complexity 
+        --dataset snopes
+        --output-dir outputs
+
+  experiment-mumin:
+    <<: *common
+    container_name: mmbt-exp-mumin
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - CUDA_VISIBLE_DEVICES=0
+      - TWITTER_BEARER_TOKEN=${TWITTER_BEARER_TOKEN}
+    command: >
+      python scripts/run_experiments.py 
+        --experiment mumin
+        --output-dir outputs
+
+  # ==========================================
+  # Development & Testing
+  # ==========================================
+  dev:
+    <<: *common
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      target: development
+    container_name: mmbt-dev
+    stdin_open: true
+    tty: true
+    volumes:
+      - ..:/app
+      - ../datasets:/app/datasets:ro
+    command: bash
+
+  test:
+    <<: *common
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      target: testing
+    container_name: mmbt-test
+    command: pytest tests/ -v --tb=short
+
+  # ==========================================
+  # Jupyter Notebook
+  # ==========================================
+  jupyter:
+    <<: *common
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      target: development
+    container_name: mmbt-jupyter
+    ports:
+      - "8888:8888"
+    command: >
+      jupyter notebook 
+        --ip=0.0.0.0 
+        --port=8888 
+        --no-browser 
+        --allow-root 
+        --NotebookApp.token=''

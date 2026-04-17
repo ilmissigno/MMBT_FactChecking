@@ -1,0 +1,118 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mmbt-factchecking"
+version = "1.0.0"
+description = "MMBT (MultiModal BiTransformers) per Fact-Checking automatico"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.8"
+authors = [
+    {name = "Raffaele", email = "your.email@example.com"}
+]
+keywords = [
+    "fact-checking",
+    "multimodal",
+    "bert",
+    "deep-learning",
+    "nlp",
+    "computer-vision"
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+
+dependencies = [
+    "torch>=1.12.0",
+    "torchvision>=0.13.0",
+    "transformers>=4.20.0",
+    "sentence-transformers>=2.2.0",
+    "faiss-cpu>=1.7.0",
+    "numpy>=1.21.0",
+    "pandas>=1.3.0",
+    "Pillow>=9.0.0",
+    "scikit-learn>=1.0.0",
+    "tqdm>=4.64.0",
+    "PyYAML>=6.0",
+    "matplotlib>=3.5.0",
+    "seaborn>=0.11.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-cov>=3.0.0",
+    "black>=22.0.0",
+    "isort>=5.10.0",
+    "flake8>=4.0.0",
+    "mypy>=0.950",
+]
+gpu = [
+    "faiss-gpu>=1.7.0",
+]
+mumin = [
+    "mumin>=1.0.0",
+    "tweepy>=4.0.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/yourusername/mmbt-factchecking"
+Documentation = "https://github.com/yourusername/mmbt-factchecking#readme"
+Repository = "https://github.com/yourusername/mmbt-factchecking.git"
+
+[project.scripts]
+mmbt-train = "mmbt.train:main"
+mmbt-eval = "mmbt.evaluate:main"
+
+[tool.setuptools]
+packages = ["mmbt", "mmbt.data", "mmbt.models", "mmbt.losses", "mmbt.metrics", "mmbt.utils", "mmbt.benchmarks"]
+package-dir = {"" = "."}
+
+[tool.setuptools.package-data]
+mmbt = ["*.yaml", "*.json"]
+
+[tool.black]
+line-length = 120
+target-version = ['py38', 'py39', 'py310', 'py311']
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+    \.git
+    | \.venv
+    | lib
+    | data
+    | models
+)/
+'''
+
+[tool.isort]
+profile = "black"
+line_length = 120
+skip = [".venv", "lib", "data", "models"]
+
+[tool.mypy]
+python_version = "3.8"
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = true
+exclude = ["lib/", "data/", "models/"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_functions = ["test_*"]
+addopts = "-v --tb=short"
+filterwarnings = [
+    "ignore::DeprecationWarning",
+    "ignore::FutureWarning",
+]
